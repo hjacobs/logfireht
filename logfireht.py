@@ -171,7 +171,7 @@ class LogReader(Thread):
                     receiver.eof(fid)
                     break
                 if not had_entry:
-                    time.sleep(0.5)
+                    time.sleep(1.0)
                     #fd.seek(where)
 
 
@@ -399,7 +399,7 @@ def main():
         file_names[fid] = name
         used_file_names.add(name)
         parser = AccessLogParser()
-        readers.append(LogReader(fid, fpath, parser, aggregator, tail=options.tail, tail_size=options.tail_size, follow=options.follow, filterdef=filterdef))
+        readers.append(LogReader(fid, fpath, parser, aggregator, tail=options.tail, tail_size=options.tail_size/len(file_names), follow=options.follow, filterdef=filterdef))
         fid += 1
     for reader in readers:
         reader.start()
