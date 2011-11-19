@@ -23,6 +23,9 @@ MONTHS = {
 
 DELIM = re.compile(r'(?<![\\])"')
 
+class RecoverableParseError(Exception):
+    pass
+
 class AccessLogParser(object):
     """parse apache access log with the following format:
 
@@ -44,7 +47,12 @@ class AccessLogParser(object):
         while True:
             line = fd.readline()
             if not line:
+                # at end of stream 
                 break
+            if line.startswith('\x00'):
+                # I noticed sporadic null bytes when reading a log file over NFS
+                # => LogReader should retry (after sleeping one second)
+                raise RecoverableParseError()
             if not line.endswith('\n'):
                 last += line
                 continue
@@ -69,8 +77,7 @@ class AccessLogParser(object):
                 session_id = last_cols[-1].strip()
                 yield LogEntry(fid=fid, ts=ts, i=i, vhost=vhost, remote_addr=remote_addr, duration=duration, method=method, path=path, status_code=status_code, referrer=referrer, user_agent=user_agent, response_size=response_size, session_id=session_id)
             except Exception:
-                print 'ERROR parsing line:', repr(line)
-                print 'Last was:', repr(last)
+                print 'ERROR parsing line from %d:' % fid, repr(line)
                 traceback.print_exc()
             i += 1
 

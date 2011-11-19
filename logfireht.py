@@ -9,7 +9,7 @@ import signal
 import sys
 import time
 import lib.jinjatool
-from lib.parser import AccessLogParser
+from lib.parser import AccessLogParser, RecoverableParseError
 
 from threading import Thread
 from optparse import OptionParser
@@ -110,8 +110,8 @@ class LogReader(Thread):
             e = contents.rfind('\n', 0, e)
             if e >= 0:
                 i += 1
-                if i >= n:
-                    fd.seek(s + e, 2)
+                if i > n:
+                    fd.seek(s + e + 1, 2)
                     break
 
     def _seek_time(self, fd, ts):
@@ -153,26 +153,33 @@ class LogReader(Thread):
         fid = self.fid
         receiver = self.receiver
         filt = self.filterdef
-        with open(self.fname, 'rb') as fd:
+        fd = open(self.fname, 'rb')
+        try:
             self.parser.auto_configure(fd)
             if self.tail:
                 self._seek_tail(fd, self.tail_size)
             elif filt.time_from:
                 self._seek_time(fd, filt.time_from)
             while True:
-                #where = fd.tell()
-                had_entry = False
-                for entry in self.parser.read(fid, fd):
-                    if filt.matches(entry):
-                        receiver.add(entry)
-                    #print entry.ts, entry.level, entry.thread, entry.source_class, entry.source_location, entry.message
-                    had_entry = True
+                where = fd.tell()
+                try:
+                    for entry in self.parser.read(fid, fd):
+                        where = fd.tell()
+                        if filt.matches(entry):
+                            receiver.add(entry)
+                except RecoverableParseError:
+                    print 'RecoverableParseError', fid, where
+                    time.sleep(1.0)
+                    fd.close()
+                    fd = open(self.fname, 'rb')
+                    fd.seek(where)
+                    continue
                 if not self.follow:
                     receiver.eof(fid)
                     break
-                if not had_entry:
-                    time.sleep(1.0)
-                    #fd.seek(where)
+                time.sleep(1.0)
+        finally:
+            fd.close()
 
 
 class Watcher:
@@ -390,8 +397,7 @@ def main():
             name, unused, fpath = fname_with_name.partition(':')
         else:
             fpath = fname_with_name
-            name, ext = os.path.splitext(os.path.basename(fpath))
-            name = name[-4:].upper()
+            name = 'L%02d' % (fid + 1)
         i = 1
         while name in used_file_names:
             name = name + str(i)
