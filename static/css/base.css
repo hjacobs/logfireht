@@ -122,3 +122,12 @@ button.block {
 button.block:hover {
     background: transparent url(/static/img/block_hover.png) no-repeat 0 0;
 }
+
+.totals td {
+	border-top: 1px solid #bbb;
+	color: #bbb;
+}
+.totals td:first:after {
+	content: "Sum";
+}
+

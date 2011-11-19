@@ -45,7 +45,7 @@ function startUpdating() {
     <table>
     <thead>
     <tr>
-    <th>Country</th><th>IP</th><th>Req</th><th>R/s</th><th>%</th><th></th>
+    <th style="font-size:9px" title="Country Code">CC</th><th>IP</th><th>Req</th><th>R/s</th><th>%</th><th></th>
     </tr>
     </thead>
     <tbody>
@@ -57,7 +57,7 @@ function startUpdating() {
     <table>
     <thead>
     <tr>
-    <th>TLD</th><th>VHost</th><th>Req</th><th>R/s</th><th>%</th>
+    <th style="font-size:9px">TLD</th><th>VHost</th><th>Req</th><th>R/s</th><th>%</th>
     </tr>
     </thead>
     <tbody>
@@ -81,7 +81,7 @@ function startUpdating() {
     <table>
     <thead>
     <tr>
-    <th>TLD</th><th>URL</th><th>Req</th><th>R/s</th><th>%</th><th></th>
+    <th style="font-size:9px">TLD</th><th>URL</th><th>Req</th><th>R/s</th><th>%</th><th></th>
     </tr>
     </thead>
     <tbody>
@@ -201,6 +201,7 @@ var updateStatistics = function(data) {
         tbl.find('tbody tr').remove();
         var cls = '';
         var tld = '';
+		var total = 0;
         $.each(data.most_common_remote_addrs, function(i, v) {
             cls = [];
             extra = '';
@@ -208,8 +209,10 @@ var updateStatistics = function(data) {
                 cls.push('internal-ip');
                 extra = ' title="Own IP: ' + INTERNAL_IPS[v[0]] + '"';
             }
+			total += v[2];
             tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td><button class="block" title="blacklist this IP">BLOCK</button></td></tr>');
         });
+		tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-status-codes table');
         tbl.find('tbody tr').remove();
         $.each(data.most_common_status_codes, function(i, v) {
@@ -226,6 +229,7 @@ var updateStatistics = function(data) {
         });
         var tbl = $('#most-common-urls table');
         tbl.find('tbody tr').remove();
+		total = 0;
         $.each(data.most_common_paths, function(i, v) {
             cls = [];
             if (INTERNAL_URLS[v[0]]) {
@@ -234,17 +238,22 @@ var updateStatistics = function(data) {
             tld = v[0].split('/');
             tld = tld[0].split('.');
             tld = tld[tld.length-1];
+			total += v[1];
             tbl.append('<tr' + getClass(cls, i) + '><td>' + getFlag(tld) + '</td><td>' + getLink(ts, 'path', v[0].substring(v[0].indexOf('/')), v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td><td><button class="block" title="blacklist this URL (all VHosts!)">BLOCK</button></tr>');
         });
+		tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-user-agents table');
         tbl.find('tbody tr').remove();
+		total = 0;
         $.each(data.most_common_user_agents, function(i, v) {
             cls = [];
             if (INTERNAL_USER_AGENTS[v[0]]) {
                 cls.push('internal-user-agent');
             }
+			total += v[1];
             tbl.append('<tr' + getClass(cls, i) + '><td>' + getLink(ts, 'user_agent', v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
         });
+		tbl.append('<tr class="totals"><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
     }
 };
 
