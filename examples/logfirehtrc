@@ -1,0 +1,17 @@
+{
+    "options": {
+        "internal_ips": {
+            "127.0.0.1": "Localhost",
+            "192.168.1.1": "Load Balancer"
+        },
+        "internal_urls": {
+            "www.example.org/monitor-check.py": true
+        },
+        "internal_user_agents": {
+            "-": true,
+            "Internal Monitoring Script": true,
+            "Nagios v123": true
+        }
+    }, 
+    "files": []
+}

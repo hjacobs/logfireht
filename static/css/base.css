@@ -54,13 +54,13 @@ button.stopped:hover {
 
 .count { text-align: right; }
 .percentage { text-align: right; }
-.internal-url td,
 .internal-ip td,
+.internal-url td,
 .internal-user-agent td {
     color: #aaa;
 }
+.internal-ip td a,
 .internal-url td a,
-.own-ip td a,
 .internal-user-agent td a {
     color: #aaa;
 }
