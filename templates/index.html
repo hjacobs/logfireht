@@ -1,0 +1,307 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>logfireht</title>
+<link rel="stylesheet" href="/static/css/base.css" />
+<script src="/static/js/jquery-1.7.min.js"></script>
+<script src="/static/js/countries.js"></script>
+</head>
+<body>
+
+<script>
+function toggleUpdating() {
+    var b = $('#hdr button');
+    if (b.hasClass('stopped')) {
+        startUpdating();
+    } else {
+        stopUpdating();
+    }
+    return false;
+}
+function stopUpdating() {
+    var b = $('#hdr button');
+    b.addClass('stopped');
+    b.text('START UPDATING');
+}
+function startUpdating() {
+    var b = $('#hdr button');
+    b.removeClass('stopped');
+    b.text('STOP UPDATING');
+    $('#log-entries').hide();
+    document.location.hash = '';
+}
+
+</script>
+<div id="hdr">
+    <div id="tail-stats">
+        <span id="tail-start"></span> - <span id="tail-end"></span> (<span id="tail-size"></span> requests in <span id="tail-span"></span> minutes = <span id="req-per-sec"></span> R/s)
+    </div>
+    <button onclick="toggleUpdating()">STOP UPDATING</button>
+</div>
+
+<div id="main">
+
+<div id="most-common-ips">
+    <table>
+    <thead>
+    <tr>
+    <th>Country</th><th>IP</th><th>Req</th><th>R/s</th><th>%</th><th></th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
+<div id="most-common-vhosts">
+    <table>
+    <thead>
+    <tr>
+    <th>TLD</th><th>VHost</th><th>Req</th><th>R/s</th><th>%</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
+<div id="most-common-status-codes">
+    <table>
+    <thead>
+    <tr>
+    <th>Status</th><th>Req</th><th>R/s</th><th>%</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
+<div id="most-common-urls">
+    <table>
+    <thead>
+    <tr>
+    <th>TLD</th><th>URL</th><th>Req</th><th>R/s</th><th>%</th><th></th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
+<div id="most-common-user-agents">
+    <table>
+    <thead>
+    <tr>
+    <th>User Agent</th><th>Req</th><th>R/s</th><th>%</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
+<div id="log-entries">
+    <h2>Last 100 log entries for <span id="log-entries-filter-field"></span> <span id="log-entries-filter-value"></span></h2>
+    <table>
+    <thead>
+    <tr>
+    <th>Time</th>
+    <th>Log</th>
+    <th>VHost</th>
+    <th colspan="2">IP</th>
+    <th>Duration</th>
+    <th>Method</th>
+    <th>Path</th>
+    <th>Status</th>
+    <th>Referrer</th>
+    <th>User Agent</th>
+    <th>Bytes</th>
+    <th>Session ID</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
+</div>
+
+<script>
+var FILE_NAMES = {{ file_names|json }};
+var INTERNAL_IPS = {{ internal_ips|json }};
+var INTERNAL_URLS = {{ internal_urls|json }};
+var INTERNAL_USER_AGENTS = {{ internal_user_agents|json }};
+
+$.esc = function(html) {
+    if (typeof html != 'string') {
+        return html;
+    }
+    return html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+};
+
+function getFlag(cc) {
+    if (cc == '') {
+        return '';
+    }
+    if (cc == 'uk') {
+        cc = 'gb';
+    }
+    var cu = cc.toUpperCase();
+    var name = COUNTRY_NAMES[cu];
+    if (typeof name == 'undefined') {
+        return '';
+    }
+    return '<img src="/static/img/flags/' + cc.toLowerCase() + '.png" alt="' + cu + '" title="' + name + '"/>';
+}
+
+function truncate(s, l) {
+    if (s.length > l) {
+        return '<span title="' + $.esc(s) + '">' + $.esc(s.substring(0, l)) + '...</span>';
+    }
+    return $.esc(s);
+}
+
+var getClass = function(cls, i) {
+    if (i % 2 == 0) {
+        cls.push('odd');
+    }
+    return ' class="' + cls.join(' ') + '"';
+};
+
+var getLink = function(ts, p, v, d, t) {
+    if (typeof d == 'undefined' || d == null) {
+        d = v;
+    }
+    if (typeof t == 'undefined') {
+        t = 80;
+    }
+    return '<a href="#ts=' + ts + ',' + p + '=' + $.esc(v) + '">' + truncate(d, t) + '</a>';
+};
+
+var updateStatistics = function(data) {
+    var tailStart = Date.parse(data.tail_start);
+    var tailEnd = Date.parse(data.tail_end);
+    var tailSpan = 0.001 * Math.max(1, tailEnd - tailStart); // in seconds
+    var tailSize = data.tail_size;
+    $('#tail-start').text(data.tail_start.substring(11)).attr('title', data.tail_start);
+    $('#tail-end').text(data.tail_end.substring(11)).attr('title', data.tail_end);
+    $('#tail-size').text(tailSize);
+    $('#tail-span').text((tailSpan / 60).toFixed(0));
+    $('#req-per-sec').text((tailSize * 1.0 / tailSpan).toFixed(2));
+    if (tailSize > 0) {
+        var reqPerSec = function(v) {
+            return (v / tailSpan).toFixed(2);
+        };
+        var percentage = function(v) {
+            return  (100.0 * v / tailSize).toFixed(2);
+        };
+        var ts = data.ts;
+        var tbl = $('#most-common-ips table');
+        tbl.find('tbody tr').remove();
+        var cls = '';
+        var tld = '';
+        $.each(data.most_common_remote_addrs, function(i, v) {
+            cls = [];
+            extra = '';
+            if (INTERNAL_IPS[v[0]]) {
+                cls.push('internal-ip');
+                extra = ' title="Own IP: ' + INTERNAL_IPS[v[0]] + '"';
+            }
+            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td><button class="block" title="blacklist this IP">BLOCK</button></td></tr>');
+        });
+        var tbl = $('#most-common-status-codes table');
+        tbl.find('tbody tr').remove();
+        $.each(data.most_common_status_codes, function(i, v) {
+            cls = [];
+            tbl.append('<tr' + getClass(cls, i) + '><td>' + getLink(ts, 'status_code', v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
+        });
+        var tbl = $('#most-common-vhosts table');
+        tbl.find('tbody tr').remove();
+        $.each(data.most_common_vhosts, function(i, v) {
+            cls = [];
+            tld = v[0].split('.');
+            tld = tld[tld.length-1];
+            tbl.append('<tr' + getClass(cls, i) + '><td>' + getFlag(tld) + '</td><td>' + getLink(ts, 'vhost', v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
+        });
+        var tbl = $('#most-common-urls table');
+        tbl.find('tbody tr').remove();
+        $.each(data.most_common_paths, function(i, v) {
+            cls = [];
+            if (INTERNAL_URLS[v[0]]) {
+                cls.push('internal-url');
+            }
+            tld = v[0].split('/');
+            tld = tld[0].split('.');
+            tld = tld[tld.length-1];
+            tbl.append('<tr' + getClass(cls, i) + '><td>' + getFlag(tld) + '</td><td>' + getLink(ts, 'path', v[0].substring(v[0].indexOf('/')), v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td><td><button class="block" title="blacklist this URL (all VHosts!)">BLOCK</button></tr>');
+        });
+        var tbl = $('#most-common-user-agents table');
+        tbl.find('tbody tr').remove();
+        $.each(data.most_common_user_agents, function(i, v) {
+            cls = [];
+            if (INTERNAL_USER_AGENTS[v[0]]) {
+                cls.push('internal-user-agent');
+            }
+            tbl.append('<tr' + getClass(cls, i) + '><td>' + getLink(ts, 'user_agent', v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
+        });
+    }
+};
+
+var update = function() {
+    if ($('#hdr button.stopped').length) {
+        window.setTimeout(update, 2000);
+        return;
+    }
+    $.getJSON('/poll', function(data) {
+        console.log(data);
+        updateStatistics(data);
+        window.setTimeout(update, 2000);
+    });
+};
+
+update();
+
+var updateLogEntries = function(ts, field, value, entries, ip_countries) {
+    $('#log-entries-filter-field').text(field);
+    $('#log-entries-filter-value').text(value);
+    var tbl = $('#log-entries table');
+    tbl.find('tbody tr').remove();
+    $.each(entries, function(i, r) {
+        cls = [];
+        extra = '';
+        if (INTERNAL_IPS[r[4]]) {
+            cls.push('internal-ip');
+            extra = ' title="Own IP: ' + INTERNAL_IPS[r[4]] + '"';
+        }
+        tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + r[0].substring(10) + '</td><td>' + getLink(ts, 'fid', r[1], FILE_NAMES[r[1]]) + '</td><td>' + r[3] + '</td><td>'
+            + getFlag(ip_countries[r[4]]) + '</td><td>' +getLink(ts, 'remote_addr', r[4]) + '</td><td align="right">' + (0.001 * r[5]).toFixed(1) + '</td><td>' + r[6] + '</td><td>' + getLink(ts, 'path', r[7]) + '</td><td>' + r[8] + '</td><td>' + truncate(r[9], 30) + '</td><td>' + getLink(ts, 'user_agent', r[10], null, 30) + '</td><td align="right">' + r[11] + '</td><td>' + getLink(ts, 'session_id', r[12], null, 10) + '</td></tr>');
+    });
+    $('#log-entries').show();
+};
+
+var lastHash = null;
+var checkLocationHash = function() {
+    var h = document.location.hash;
+    if (h.indexOf('#ts=') == 0 && lastHash != h) {
+        stopUpdating();
+        var i = h.indexOf(',');
+        var ts = h.substring(4, i);
+        var p = h.substring(i+1);
+        i = p.indexOf('=');
+        var f = p.substring(0, i);
+        var v = p.substring(i+1);
+        $.getJSON('/history_entry/' + ts, {field: f, value: v}, function(data) {
+            console.log(data);
+            updateStatistics(data.statistics);
+            updateLogEntries(ts, f, v, data.log_entries, data.remote_addr_countries);
+        });
+        lastHash = h;
+    }
+};
+window.setInterval(checkLocationHash, 100);
+
+</script>
+
+</body>
+</html>
