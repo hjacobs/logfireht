@@ -90,17 +90,14 @@ button.stopped:hover {
 #main {
     padding: 10px;
 }
-#most-common-ips {
+#most-common-ips,
+#most-common-status-codes,
+#most-common-durations,
+#most-common-vhosts,
+#most-common-user-agents {
     float: left;
-    margin-right: 10px;
-}
-#most-common-status-codes {
-    margin-bottom: 10px;
-}
-#most-common-vhosts {
     margin-bottom: 10px;
     margin-right: 10px;
-    float: left;
 }
 #log-entries {
     display: none;

@@ -77,6 +77,18 @@ function startUpdating() {
     </table>
 </div>
 
+<div id="most-common-durations">
+    <table>
+    <thead>
+    <tr>
+    <th>Duration [ms]</th><th>Req</th><th>R/s</th><th>%</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+    </table>
+</div>
+
 <div id="most-common-urls">
     <table>
     <thead>
@@ -218,6 +230,12 @@ var updateStatistics = function(data) {
         $.each(data.most_common_status_codes, function(i, v) {
             cls = [];
             tbl.append('<tr' + getClass(cls, i) + '><td>' + getLink(ts, 'status_code', v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
+        });
+        var tbl = $('#most-common-durations table');
+        tbl.find('tbody tr').remove();
+        $.each(data.most_common_durations, function(i, v) {
+            cls = [];
+            tbl.append('<tr' + getClass(cls, i) + '><td style="text-align:right">' + getLink(ts, 'duration', v[0], (v[0] * 250) + ' - ' + ((v[0]+1) * 250)) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
         });
         var tbl = $('#most-common-vhosts table');
         tbl.find('tbody tr').remove();

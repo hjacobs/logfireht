@@ -57,7 +57,7 @@ class Root(object):
         log_entries = collections.deque(maxlen=100)
         ip_countries = {}
         for l in entry.tail:
-            if str(getattr(l, field)) == value:
+            if l.matches(field, value):
                 log_entries.append(l)
                 ip_countries[l.remote_addr] = None
         gi = geoip
@@ -231,7 +231,7 @@ class LogAggregator(object):
         n = len(file_names)
         self.open_files = set(range(n))
         self.tail = collections.deque(maxlen=tail_size)
-        self.history = collections.deque(maxlen=100)
+        self.history = collections.deque(maxlen=10)
 
     def add(self, entry):
         if self.tail and self.follow:
@@ -262,6 +262,7 @@ class LogAggregator(object):
         counts_by_path = collections.Counter([ entry.vhost + entry.path for entry in tail])
         counts_by_status_code = collections.Counter([ entry.status_code for entry in tail])
         counts_by_user_agent = collections.Counter([ entry.user_agent for entry in tail])
+        counts_by_duration = collections.Counter([ entry.duration/250000 for entry in tail ])
         statistics = {
             'ts': now,
             'tail_start': tail[0].ts if tail else None,
@@ -271,7 +272,8 @@ class LogAggregator(object):
             'most_common_vhosts': counts_by_vhost.most_common(50),
             'most_common_paths': counts_by_path.most_common(50),
             'most_common_status_codes': counts_by_status_code.most_common(50),
-            'most_common_user_agents': counts_by_user_agent.most_common(50)
+            'most_common_user_agents': counts_by_user_agent.most_common(50),
+            'most_common_durations': counts_by_duration.most_common(50)
         }
         histentry = HistoryEntry(ts=now, tail=tail, statistics=statistics)
         self.history.append(histentry)

@@ -4,7 +4,11 @@ import collections
 import re
 import traceback
 
-LogEntry = collections.namedtuple('LogEntry', 'ts fid i vhost remote_addr duration method path status_code referrer user_agent response_size session_id')
+class LogEntry(collections.namedtuple('LogEntry', 'ts fid i vhost remote_addr duration method path status_code referrer user_agent response_size session_id')):
+    def matches(self, field, value):
+        if field == 'duration':
+            return self.duration/250000 == int(value)
+        return str(getattr(self, field)) == value
 
 MONTHS = {
     'Jan': '01',
