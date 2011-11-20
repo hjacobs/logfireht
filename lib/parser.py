@@ -51,7 +51,7 @@ class AccessLogParser(object):
         while True:
             line = fd.readline()
             if not line:
-                # at end of stream 
+                # at end of stream
                 break
             if line.startswith('\x00'):
                 # I noticed sporadic null bytes when reading a log file over NFS

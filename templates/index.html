@@ -4,6 +4,7 @@
 <title>logfireht</title>
 <link rel="stylesheet" href="/static/css/base.css" />
 <script src="/static/js/jquery-1.7.min.js"></script>
+<script src="/static/js/jquery.scrollTo-min.js"></script>
 <script src="/static/js/countries.js"></script>
 </head>
 <body>
@@ -191,9 +192,13 @@ var getLink = function(ts, p, v, d, t) {
     return '<a href="#ts=' + ts + ',' + p + '=' + $.esc(v) + '">' + truncate(d, t) + '</a>';
 };
 
+function parseDate(s) {
+   return Date.parse(s.replace(' ', 'T'));
+}
+
 var updateStatistics = function(data) {
-    var tailStart = Date.parse(data.tail_start);
-    var tailEnd = Date.parse(data.tail_end);
+    var tailStart = parseDate(data.tail_start);
+    var tailEnd = parseDate(data.tail_end);
     var tailSpan = 0.001 * Math.max(1, tailEnd - tailStart); // in seconds
     var tailSize = data.tail_size;
     $('#tail-start').text(data.tail_start.substring(11)).attr('title', data.tail_start);
@@ -213,7 +218,7 @@ var updateStatistics = function(data) {
         tbl.find('tbody tr').remove();
         var cls = '';
         var tld = '';
-		var total = 0;
+      var total = 0;
         $.each(data.most_common_remote_addrs, function(i, v) {
             cls = [];
             extra = '';
@@ -221,10 +226,10 @@ var updateStatistics = function(data) {
                 cls.push('internal-ip');
                 extra = ' title="Own IP: ' + INTERNAL_IPS[v[0]] + '"';
             }
-			total += v[2];
+         total += v[2];
             tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td><button class="block" title="blacklist this IP">BLOCK</button></td></tr>');
         });
-		tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
+      tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-status-codes table');
         tbl.find('tbody tr').remove();
         $.each(data.most_common_status_codes, function(i, v) {
@@ -247,7 +252,7 @@ var updateStatistics = function(data) {
         });
         var tbl = $('#most-common-urls table');
         tbl.find('tbody tr').remove();
-		total = 0;
+      total = 0;
         $.each(data.most_common_paths, function(i, v) {
             cls = [];
             if (INTERNAL_URLS[v[0]]) {
@@ -256,22 +261,22 @@ var updateStatistics = function(data) {
             tld = v[0].split('/');
             tld = tld[0].split('.');
             tld = tld[tld.length-1];
-			total += v[1];
+         total += v[1];
             tbl.append('<tr' + getClass(cls, i) + '><td>' + getFlag(tld) + '</td><td>' + getLink(ts, 'path', v[0].substring(v[0].indexOf('/')), v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td><td><button class="block" title="blacklist this URL (all VHosts!)">BLOCK</button></tr>');
         });
-		tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
+      tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-user-agents table');
         tbl.find('tbody tr').remove();
-		total = 0;
+      total = 0;
         $.each(data.most_common_user_agents, function(i, v) {
             cls = [];
             if (INTERNAL_USER_AGENTS[v[0]]) {
                 cls.push('internal-user-agent');
             }
-			total += v[1];
+         total += v[1];
             tbl.append('<tr' + getClass(cls, i) + '><td>' + getLink(ts, 'user_agent', v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td></tr>');
         });
-		tbl.append('<tr class="totals"><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
+      tbl.append('<tr class="totals"><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
     }
 };
 
@@ -281,7 +286,6 @@ var update = function() {
         return;
     }
     $.getJSON('/poll', function(data) {
-        console.log(data);
         updateStatistics(data);
         window.setTimeout(update, 2000);
     });
@@ -305,6 +309,7 @@ var updateLogEntries = function(ts, field, value, entries, ip_countries) {
             + getFlag(ip_countries[r[4]]) + '</td><td>' +getLink(ts, 'remote_addr', r[4]) + '</td><td align="right">' + (0.001 * r[5]).toFixed(1) + '</td><td>' + r[6] + '</td><td>' + getLink(ts, 'path', r[7]) + '</td><td>' + r[8] + '</td><td>' + truncate(r[9], 30) + '</td><td>' + getLink(ts, 'user_agent', r[10], null, 30) + '</td><td align="right">' + r[11] + '</td><td>' + getLink(ts, 'session_id', r[12], null, 10) + '</td></tr>');
     });
     $('#log-entries').show();
+   $.scrollTo($('#log-entries'));
 };
 
 var lastHash = null;
@@ -319,7 +324,6 @@ var checkLocationHash = function() {
         var f = p.substring(0, i);
         var v = p.substring(i+1);
         $.getJSON('/history_entry/' + ts, {field: f, value: v}, function(data) {
-            console.log(data);
             updateStatistics(data.statistics);
             updateLogEntries(ts, f, v, data.log_entries, data.remote_addr_countries);
         });

@@ -65,6 +65,8 @@ button.stopped:hover {
     color: #aaa;
 }
 #hdr {
+    position: fixed;
+    width: 100%;
     background: #fff;
     color: #000;
     font-weight: bold;
@@ -72,14 +74,14 @@ button.stopped:hover {
     overflow: hidden;
     border-bottom: 1px solid #333333;
     box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.5);
-    padding: 6px 10px 4px 10px;
 }
 #hdr div {
     float: left;
-    padding: 8px 0;
+    padding: 8px 10px;
 }
 #hdr button {
     float: right;
+   margin-right: 10px;
 }
 #hdr em {
     position: absolute;
@@ -88,7 +90,7 @@ button.stopped:hover {
     font-style: normal;
 }
 #main {
-    padding: 10px;
+    padding: 46px 10px 10px 10px;
 }
 #most-common-ips,
 #most-common-status-codes,
@@ -114,6 +116,7 @@ button.block {
     padding: 0;
     margin: 0;
     text-indent: 32px;
+   overflow: hidden;
     cursor: pointer;
 }
 button.block:hover {
@@ -121,10 +124,10 @@ button.block:hover {
 }
 
 .totals td {
-	border-top: 1px solid #bbb;
-	color: #bbb;
+   border-top: 1px solid #bbb;
+   color: #bbb;
 }
 .totals td:first:after {
-	content: "Sum";
+   content: "Sum";
 }
 
