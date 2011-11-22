@@ -5,6 +5,7 @@ import cherrypy
 import datetime
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -24,6 +25,7 @@ class MockGeoIP(object):
 
 geoip = MockGeoIP()
 
+REGEX_GROUP_PATTERN = re.compile('\(\?P<(\w*)>[^)]*\)')
 
 class Root(object):
     _cp_config = {
@@ -34,6 +36,19 @@ class Root(object):
     def __init__(self, options, aggregator):
         self.options = options
         self.aggregator = aggregator
+
+    def _success(self, msg):
+        cherrypy.session['flash_message'] = {'type': 'success', 'message': msg}
+
+    def _error(self, msg):
+        cherrypy.session['flash_message'] = {'type': 'error', 'message': msg}
+
+    def _add_flash_msg(self, d):
+        flash_msg = cherrypy.session.get('flash_message')
+        if flash_msg:
+            cherrypy.session['flash_message'] = None
+        d['flash_message'] = flash_msg
+        return d
 
     @expose
     @jinja(tpl='index.html')
@@ -64,6 +79,49 @@ class Root(object):
         for ip in ip_countries.keys():
             ip_countries[ip] = gi.country_code_by_addr(ip)
         return json.dumps({'log_entries': list(log_entries), 'statistics': entry.statistics, 'remote_addr_countries': ip_countries}, separators=(',', ':'))
+
+    def _read_ip_blacklist(self):
+        fpath = self.options.ip_blacklist['path']
+        pattern = re.compile(self.options.ip_blacklist['format'])
+        entries = {}
+        with open(fpath, 'rb') as fd:
+            for line in fd:
+                m = pattern.match(line.strip())
+                entries[(m.group('type'), m.group('address'))] = m.group('comment')
+        print entries
+        return entries
+
+    def _write_ip_blacklist(self, entries):
+        fpath = self.options.ip_blacklist['path']
+        write_pattern = self.options.ip_blacklist['format'].replace('\s+', ' ').replace('\s*', ' ')
+        entry_template = REGEX_GROUP_PATTERN.sub('##\\1##', write_pattern) + '\n'
+        lines = []
+        for key, comment in sorted(entries.items()):
+            t, address = key
+            lines.append(entry_template.replace('##type##', t).replace('##address##', address).replace('##comment##', comment))
+        with open(fpath, 'wb') as fd:
+            fd.writelines(lines)
+
+    @expose
+    @jinja(tpl='blacklists.html')
+    def blacklists(self):
+        ip_blacklist = self._read_ip_blacklist()
+        return self._add_flash_msg({'ip_blacklist': ip_blacklist})
+
+    @expose
+    def blacklist_ip(self, ip=None, comment=None):
+        if not ip or not comment:
+            self._error('Invalid IP/comment')
+            raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+        entries = self._read_ip_blacklist()
+        now = datetime.datetime.now()
+        if ip not in entries:
+            entries[('host', ip)] = 'blacklisted by logfireht on %s: %s' % (now.isoformat(' '), comment)
+        self._write_ip_blacklist(entries)
+        self._success('IP %s has been blacklisted' % (ip,))
+        raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+
+
 
 
 
@@ -361,7 +419,11 @@ def main():
                 '127.0.0.1': 'Localhost'
             },
             'internal_urls': {},
-            'internal_user_agents': {}
+            'internal_user_agents': {},
+            'ip_blacklist': {
+                'path': 'ip_blacklist.txt',
+                'format': '(?P<type>\w+)\s+(?P<address>[0-9./]+)\s+(?P<comment>.*)'
+            }
         },
         'files': []
     }

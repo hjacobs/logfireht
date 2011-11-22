@@ -196,6 +196,23 @@ function parseDate(s) {
    return Date.parse(s.replace(' ', 'T'));
 }
 
+function blacklistIp(ip, country) {
+    var cu = country.toUpperCase();
+    var countryName = COUNTRY_NAMES[cu];
+    if (typeof countryName == 'undefined') {
+        countryName = 'Unknown';
+    }
+    var comment = prompt('Please enter a comment for blacklisting the following IP:\n' + ip + ' from ' + countryName + ' (' + country + ')');
+    if (!comment) {
+        alert('No comment entered, not blacklisting!');
+        return;
+    }
+    var frm = $('#frm-blacklist-ip');
+    frm.find('input[name=ip]').val(ip);
+    frm.find('input[name=comment]').val(comment + ' ' + countryName + '(' + country + ')');
+    frm.submit();
+}
+
 var updateStatistics = function(data) {
     var tailStart = parseDate(data.tail_start);
     var tailEnd = parseDate(data.tail_end);
@@ -227,7 +244,7 @@ var updateStatistics = function(data) {
                 extra = ' title="Own IP: ' + INTERNAL_IPS[v[0]] + '"';
             }
          total += v[2];
-            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td><button class="block" title="blacklist this IP">BLOCK</button></td></tr>');
+            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td><button class="block" title="blacklist this IP" onclick="blacklistIp(\'' + v[0] + '\', \'' + v[1] + '\')">BLOCK</button></td></tr>');
         });
       tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-status-codes table');
@@ -333,6 +350,11 @@ var checkLocationHash = function() {
 window.setInterval(checkLocationHash, 100);
 
 </script>
+
+<form action="/blacklist_ip" id="frm-blacklist-ip" method="post">
+    <input type="hidden" name="ip"/>
+    <input type="hidden" name="comment"/>
+</form>
 
 </body>
 </html>

@@ -75,6 +75,11 @@ button.stopped:hover {
     border-bottom: 1px solid #333333;
     box-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.5);
 }
+#hdr h1 {
+    font-size: 14px;
+    margin: 0;
+    padding: 8px 10px;
+}
 #hdr div {
     float: left;
     padding: 8px 10px;
@@ -131,3 +136,25 @@ button.block:hover {
    content: "Sum";
 }
 
+
+#flash-message {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid;
+    padding: 15px 10px;
+    color: #00529B;
+    background-color: #BDE5F8;
+    font-weight: bold;
+}
+#flash-message.success {
+    color: #4F8A10;
+    background-color: #DFF2BF;
+}
+#flash-message.warning {
+    color: #9F6000;
+    background-color: #FEEFB3;
+}
+#flash-message.error {
+    color: #D8000C;
+    background-color: #FFBABA;
+}

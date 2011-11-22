@@ -1,0 +1,42 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>logfireht - blacklists</title>
+<link rel="stylesheet" href="/static/css/base.css" />
+<script src="/static/js/jquery-1.7.min.js"></script>
+<script src="/static/js/jquery.scrollTo-min.js"></script>
+<script src="/static/js/countries.js"></script>
+</head>
+<body>
+
+<div id="hdr">
+    <h1>Blacklists</h1>
+</div>
+
+<div id="main">
+
+#if flash_message:
+<div id="flash-message" class="{{ flash_message.type|e }}">
+    {{ flash_message.message|e }}
+</div>
+#endif
+
+<div id="ip-blacklist">
+    <table>
+    <thead>
+    <tr>
+    <th>Type</th><th>IP</th><th>Comment</th>
+    </tr>
+    </thead>
+    <tbody>
+    # for key, comment in ip_blacklist.items():
+        <tr class="{{ loop.cycle('odd', 'even') }}"><td>{{ key[0] }}</td><td>{{ key[1] }}</td><td>{{ comment|e }}</td></tr>
+    # endfor
+    </tbody>
+    </table>
+</div>
+
+</div>
+
+</body>
+</html>
