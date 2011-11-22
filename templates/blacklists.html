@@ -29,7 +29,7 @@
     </tr>
     </thead>
     <tbody>
-    # for key, comment in ip_blacklist.items():
+    # for key, comment in ip_blacklist.items()|sort:
         <tr class="{{ loop.cycle('odd', 'even') }}"><td>{{ key[0] }}</td><td>{{ key[1] }}</td><td>{{ comment|e }}</td></tr>
     # endfor
     </tbody>

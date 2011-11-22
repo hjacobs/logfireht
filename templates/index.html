@@ -197,6 +197,7 @@ function parseDate(s) {
 }
 
 function blacklistIp(ip, country) {
+    stopUpdating();
     var cu = country.toUpperCase();
     var countryName = COUNTRY_NAMES[cu];
     if (typeof countryName == 'undefined') {
@@ -209,8 +210,9 @@ function blacklistIp(ip, country) {
     }
     var frm = $('#frm-blacklist-ip');
     frm.find('input[name=ip]').val(ip);
-    frm.find('input[name=comment]').val(comment + ' ' + countryName + '(' + country + ')');
+    frm.find('input[name=comment]').val(comment + ' ' + countryName + ' (' + country + ')');
     frm.submit();
+    return false;
 }
 
 var updateStatistics = function(data) {
@@ -351,9 +353,10 @@ window.setInterval(checkLocationHash, 100);
 
 </script>
 
-<form action="/blacklist_ip" id="frm-blacklist-ip" method="post">
+<form action="/blacklist_ip" id="frm-blacklist-ip" method="post" style="display:none">
     <input type="hidden" name="ip"/>
     <input type="hidden" name="comment"/>
+    <button type="submit"></button>
 </form>
 
 </body>
