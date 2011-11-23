@@ -3,7 +3,9 @@
 import collections
 import cherrypy
 import datetime
+import itertools
 import json
+import logging
 import os
 import re
 import signal
@@ -19,13 +21,26 @@ from optparse import OptionParser
 expose = cherrypy.expose
 jinja = cherrypy.tools.jinja
 
-class MockGeoIP(object):
-    def country_code_by_addr(self, ip):
-        return '';
+class GeoIPWrapper(object):
+    def __init__(self, inner):
+        self.inner = inner
+    def country_code_by_addr(self, ip, default=''):
+        if self.inner:
+            try:
+                return self.inner.country_code_by_addr(ip) or default
+            except:
+                logging.exception('Failed to get country code for IP %s' % ip)
+        return default;
 
-geoip = MockGeoIP()
+geoip = GeoIPWrapper(None)
 
 REGEX_GROUP_PATTERN = re.compile('\(\?P<(\w*)>[^)]*\)')
+
+# this IP regex is not strict, it's just used for a quick sanity test!
+IP_PATTERN = re.compile('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$|^[0-9a-f:]+:[0-9a-f:]+$')
+
+def is_ip(ip):
+    return ip and IP_PATTERN.match(ip)
 
 class Root(object):
     _cp_config = {
@@ -53,11 +68,15 @@ class Root(object):
     @expose
     @jinja(tpl='index.html')
     def index(self):
+        ip_blacklist = self._read_ip_blacklist()
+        ip_whitelist = self._read_ip_whitelist()
         return {
             'file_names': self.aggregator.file_names,
             'internal_ips': self.options.internal_ips,
             'internal_urls': self.options.internal_urls,
-            'internal_user_agents': self.options.internal_user_agents
+            'internal_user_agents': self.options.internal_user_agents,
+            'ip_blacklist': dict([ (k[0] + ':' + k[1], v) for k, v in ip_blacklist.items() ]),
+            'ip_whitelist': dict([ (k[0] + ':' + k[1], v) for k, v in ip_whitelist.items() ]),
         }
 
     @expose
@@ -84,11 +103,14 @@ class Root(object):
         fpath = self.options.ip_blacklist['path']
         pattern = re.compile(self.options.ip_blacklist['format'])
         entries = {}
-        with open(fpath, 'rb') as fd:
-            for line in fd:
-                m = pattern.match(line.strip())
-                entries[(m.group('type'), m.group('address'))] = m.group('comment')
-        print entries
+        try:
+            with open(fpath, 'rb') as fd:
+                for line in fd:
+                    if line.strip():
+                        m = pattern.match(line.strip())
+                        entries[(m.group('type'), m.group('address'))] = m.group('comment')
+        except IOError:
+            logging.exception('Failed to read IP blacklist' + fpath)
         return entries
 
     def _write_ip_blacklist(self, entries):
@@ -102,27 +124,108 @@ class Root(object):
         with open(fpath, 'wb') as fd:
             fd.writelines(lines)
 
+    def _read_ip_whitelist(self):
+        fpath = self.options.ip_whitelist['path']
+        pattern = re.compile(self.options.ip_whitelist['format'])
+        entries = {}
+        try:
+            with open(fpath, 'rb') as fd:
+                for line in fd:
+                    if line.strip():
+                        m = pattern.match(line.strip())
+                        entries[(m.group('type'), m.group('address'))] = m.group('comment')
+        except IOError:
+            logging.exception('Failed to read IP whitelist: ' + fpath)
+        return entries
+
+    def _write_ip_whitelist(self, entries):
+        fpath = self.options.ip_whitelist['path']
+        write_pattern = self.options.ip_whitelist['format'].replace('\s+', ' ').replace('\s*', ' ')
+        entry_template = REGEX_GROUP_PATTERN.sub('##\\1##', write_pattern) + '\n'
+        lines = []
+        for key, comment in sorted(entries.items()):
+            t, address = key
+            lines.append(entry_template.replace('##type##', t).replace('##address##', address).replace('##comment##', comment))
+        with open(fpath, 'wb') as fd:
+            fd.writelines(lines)
+
     @expose
     @jinja(tpl='blacklists.html')
     def blacklists(self):
         ip_blacklist = self._read_ip_blacklist()
-        return self._add_flash_msg({'ip_blacklist': ip_blacklist})
+        ip_whitelist = self._read_ip_whitelist()
+        gi = geoip
+        ip_countries = {}
+        for t, ip in itertools.chain(ip_blacklist.keys(), ip_whitelist.keys()):
+            if t == 'host':
+                ip_countries[ip] = gi.country_code_by_addr(ip)
+        return self._add_flash_msg({
+            'ip_blacklist': ip_blacklist,
+            'ip_whitelist': ip_whitelist,
+            'ip_countries': ip_countries
+        })
 
     @expose
     def blacklist_ip(self, ip=None, comment=None):
-        if not ip or not comment:
+        if not is_ip(ip) or not comment:
             self._error('Invalid IP/comment')
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
         entries = self._read_ip_blacklist()
+        if ('host', ip) in entries:
+            self._success('IP %s was already blacklisted' % (ip,))
+            raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+
         now = datetime.datetime.now()
-        if ip not in entries:
-            entries[('host', ip)] = 'blacklisted by logfireht on %s: %s' % (now.isoformat(' '), comment)
+        country = geoip.country_code_by_addr(ip, 'unknown')
+        # we will encode the comment as ASCII and ignore all non-ascii chars (to make sure the blacklist is read by whatever blocking tool is used)
+        entries[('host', ip)] = '%s (country: %s, time: %s)' % (comment.encode('ascii', errors='replace'), country, now.strftime('%Y-%m-%d %H:%M'))
         self._write_ip_blacklist(entries)
         self._success('IP %s has been blacklisted' % (ip,))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
+    @expose
+    def whitelist_ip(self, ip=None, comment=None):
+        if not is_ip(ip) or not comment:
+            self._error('Invalid IP/comment')
+            raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+        entries = self._read_ip_whitelist()
+        if ('host', ip) in entries:
+            self._success('IP %s was already whitelisted' % (ip,))
+            raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
+        now = datetime.datetime.now()
+        country = geoip.country_code_by_addr(ip, 'unknown')
+        # we will encode the comment as ASCII and ignore all non-ascii chars (to make sure the whitelist is read by whatever blocking tool is used)
+        entries[('host', ip)] = '%s (country: %s, time: %s)' % (comment.encode('ascii', errors='replace'), country, now.strftime('%Y-%m-%d %H:%M'))
+        self._write_ip_whitelist(entries)
+        self._success('IP %s has been whitelisted' % (ip,))
+        raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
+    @expose
+    def blacklist_remove_ip(self, ip=None):
+        if not is_ip(ip):
+            self._error('Invalid IP')
+        entries = self._read_ip_blacklist()
+        if ('host', ip) not in entries:
+            self._error('IP %s was not found on the blacklist' % (ip,))
+            raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+        del entries[('host', ip)]
+        self._write_ip_blacklist(entries)
+        self._success('IP %s has been removed from the blacklist' % (ip,))
+        raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+
+    @expose
+    def whitelist_remove_ip(self, ip=None):
+        if not is_ip(ip):
+            self._error('Invalid IP')
+        entries = self._read_ip_whitelist()
+        if ('host', ip) not in entries:
+            self._error('IP %s was not found on the whitelist' % (ip,))
+            raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
+        del entries[('host', ip)]
+        self._write_ip_whitelist(entries)
+        self._success('IP %s has been removed from the whitelist' % (ip,))
+        raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
 
 HistoryEntry = collections.namedtuple('HistoryEntry', 'ts tail statistics')
@@ -386,7 +489,7 @@ def load_geoip():
     global geoip
     try:
         import pygeoip
-        geoip = pygeoip.GeoIP('GeoIP.dat', flags=pygeoip.MEMORY_CACHE)
+        geoip = GeoIPWrapper(pygeoip.GeoIP('GeoIP.dat', flags=pygeoip.MEMORY_CACHE))
     except ImportError:
         print 'WARNING: pygeoip module not found'
     except IOError:
@@ -422,7 +525,11 @@ def main():
             'internal_user_agents': {},
             'ip_blacklist': {
                 'path': 'ip_blacklist.txt',
-                'format': '(?P<type>\w+)\s+(?P<address>[0-9./]+)\s+(?P<comment>.*)'
+                'format': '(?P<type>\w+)\s+(?P<address>[0-9a-f./:]+)\s+(?P<comment>.*)'
+            },
+            'ip_whitelist': {
+                'path': 'ip_whitelist.txt',
+                'format': '(?P<type>\w+)\s+(?P<address>[0-9a-f./:]+)\s+(?P<comment>.*)'
             }
         },
         'files': []

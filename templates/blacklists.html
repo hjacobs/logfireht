@@ -1,16 +1,18 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>logfireht - blacklists</title>
+<title>logfireht - blacklists/whitelists</title>
 <link rel="stylesheet" href="/static/css/base.css" />
 <script src="/static/js/jquery-1.7.min.js"></script>
 <script src="/static/js/jquery.scrollTo-min.js"></script>
 <script src="/static/js/countries.js"></script>
+<script src="/static/js/logfireht.js"></script>
 </head>
 <body>
 
 <div id="hdr">
-    <h1>Blacklists</h1>
+    <h1>Blacklists / Whitelists</h1>
+    <button onclick="document.location.href='/'">Back to Live Monitoring</button>
 </div>
 
 <div id="main">
@@ -21,22 +23,107 @@
 </div>
 #endif
 
+<script>
+
+function validateBlacklistIp(frm) {
+    var inp = $('#inp-ip');
+    if (!inp.val()) {
+        inp.focus();
+        return false;
+    }
+    inp = $('#inp-comment');
+    if (!inp.val()) {
+        inp.focus();
+        return false;
+    }
+    return true;
+}
+function validateWhitelistIp(frm) {
+    var inp = $('#inp-wl-ip');
+    if (!inp.val()) {
+        inp.focus();
+        return false;
+    }
+    inp = $('#inp-wl-comment');
+    if (!inp.val()) {
+        inp.focus();
+        return false;
+    }
+    return true;
+}
+</script>
+
 <div id="ip-blacklist">
+    <h2>IP Blacklist</h2>
+    <form action="/blacklist_ip" method="post" onsubmit="return validateBlacklistIp(this)" class="form">
+        <label for="inp-ip">IP</label>
+        <input type="text" name="ip" size="15" id="inp-ip"/>
+        <label for="inp-comment">Comment</label>
+        <input type="text" name="comment" id="inp-comment" />
+        <button type="submit">Blacklist</button>
+    </form>
     <table>
     <thead>
     <tr>
-    <th>Type</th><th>IP</th><th>Comment</th>
+    <th>Type</th><th>CC</th><th>IP</th><th>Comment</th><th></th>
     </tr>
     </thead>
     <tbody>
     # for key, comment in ip_blacklist.items()|sort:
-        <tr class="{{ loop.cycle('odd', 'even') }}"><td>{{ key[0] }}</td><td>{{ key[1] }}</td><td>{{ comment|e }}</td></tr>
+        <tr class="{{ loop.cycle('odd', 'even') }}"><td>{{ key[0] }}</td><td class="flag" title="{{ ip_countries[key[1]]|lower }}"></td><td>{{ key[1] }}</td><td>{{ comment|e }}</td>
+            <td>
+            # if key[0] == 'host':
+                <form action="/blacklist_remove_ip" method="post">
+                <input type="hidden" name="ip" value="{{ key[1] }}" />
+                <button title="remove this IP from the blacklist" type="submit" onclick="return confirm('Really remove IP {{ key[1] }} from the blacklist?')" class="remove">Remove</button>
+                </form>
+            # endif
+            </td>
+        </tr>
+    # endfor
+    </tbody>
+    </table>
+</div>
+
+
+<div id="ip-whitelist">
+    <h2>IP Whitelist</h2>
+    <form action="/whitelist_ip" method="post" onsubmit="return validateWhitelistIp(this)" class="form">
+        <label for="inp-wl-ip">IP</label>
+        <input type="text" name="ip" size="15" id="inp-wl-ip"/>
+        <label for="inp-wl-comment">Comment</label>
+        <input type="text" name="comment" id="inp-wl-comment" />
+        <button type="submit">Whitelist</button>
+    </form>
+    <table>
+    <thead>
+    <tr>
+    <th>Type</th><th>CC</th><th>IP</th><th>Comment</th><th></th>
+    </tr>
+    </thead>
+    <tbody>
+    # for key, comment in ip_whitelist.items()|sort:
+        <tr class="{{ loop.cycle('odd', 'even') }}"><td>{{ key[0] }}</td><td class="flag" title="{{ ip_countries[key[1]]|lower }}"></td><td>{{ key[1] }}</td><td>{{ comment|e }}</td>
+            <td>
+            # if key[0] == 'host':
+                <form action="/whitelist_remove_ip" method="post">
+                <input type="hidden" name="ip" value="{{ key[1] }}" />
+                <button title="remove this IP from the whitelist" type="submit" onclick="return confirm('Really remove IP {{ key[1] }} from the whitelist?')" class="remove">Remove</button>
+                </form>
+            # endif
+            </td>
+        </tr>
     # endfor
     </tbody>
     </table>
 </div>
 
 </div>
+
+<script>
+insertFlags();
+</script>
+
 
 </body>
 </html>

@@ -6,12 +6,13 @@
 <script src="/static/js/jquery-1.7.min.js"></script>
 <script src="/static/js/jquery.scrollTo-min.js"></script>
 <script src="/static/js/countries.js"></script>
+<script src="/static/js/logfireht.js"></script>
 </head>
 <body>
 
 <script>
 function toggleUpdating() {
-    var b = $('#hdr button');
+    var b = $('#btn-toggle-updating');
     if (b.hasClass('stopped')) {
         startUpdating();
     } else {
@@ -20,12 +21,12 @@ function toggleUpdating() {
     return false;
 }
 function stopUpdating() {
-    var b = $('#hdr button');
+    var b = $('#btn-toggle-updating');
     b.addClass('stopped');
     b.text('START UPDATING');
 }
 function startUpdating() {
-    var b = $('#hdr button');
+    var b = $('#btn-toggle-updating');
     b.removeClass('stopped');
     b.text('STOP UPDATING');
     $('#log-entries').hide();
@@ -35,9 +36,10 @@ function startUpdating() {
 </script>
 <div id="hdr">
     <div id="tail-stats">
-        <span id="tail-start"></span> - <span id="tail-end"></span> (<span id="tail-size"></span> requests in <span id="tail-span"></span> minutes = <span id="req-per-sec"></span> R/s)
+        <span id="tail-start"></span> - <span id="tail-end"></span>: <span id="tail-size"></span> requests in <span id="tail-span"></span> min, <span id="req-per-sec"></span> R/s
     </div>
-    <button onclick="toggleUpdating()">STOP UPDATING</button>
+    <button id="btn-toggle-updating" onclick="toggleUpdating()">Stop Updating</button>
+    <button onclick="document.location.href='/blacklists'">Manage Blacklists..</button>
 </div>
 
 <div id="main">
@@ -145,35 +147,9 @@ var FILE_NAMES = {{ file_names|json }};
 var INTERNAL_IPS = {{ internal_ips|json }};
 var INTERNAL_URLS = {{ internal_urls|json }};
 var INTERNAL_USER_AGENTS = {{ internal_user_agents|json }};
+var IP_BLACKLIST = {{ ip_blacklist|json }};
+var IP_WHITELIST = {{ ip_whitelist|json }};
 
-$.esc = function(html) {
-    if (typeof html != 'string') {
-        return html;
-    }
-    return html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-};
-
-function getFlag(cc) {
-    if (cc == '') {
-        return '';
-    }
-    if (cc == 'uk') {
-        cc = 'gb';
-    }
-    var cu = cc.toUpperCase();
-    var name = COUNTRY_NAMES[cu];
-    if (typeof name == 'undefined') {
-        return '';
-    }
-    return '<img src="/static/img/flags/' + cc.toLowerCase() + '.png" alt="' + cu + '" title="' + name + '"/>';
-}
-
-function truncate(s, l) {
-    if (s.length > l) {
-        return '<span title="' + $.esc(s) + '">' + $.esc(s.substring(0, l)) + '...</span>';
-    }
-    return $.esc(s);
-}
 
 var getClass = function(cls, i) {
     if (i % 2 == 0) {
@@ -210,7 +186,7 @@ function blacklistIp(ip, country) {
     }
     var frm = $('#frm-blacklist-ip');
     frm.find('input[name=ip]').val(ip);
-    frm.find('input[name=comment]').val(comment + ' ' + countryName + ' (' + country + ')');
+    frm.find('input[name=comment]').val(comment);
     frm.submit();
     return false;
 }
@@ -241,12 +217,21 @@ var updateStatistics = function(data) {
         $.each(data.most_common_remote_addrs, function(i, v) {
             cls = [];
             extra = '';
+            var whitelisted = false;
             if (INTERNAL_IPS[v[0]]) {
                 cls.push('internal-ip');
                 extra = ' title="Own IP: ' + INTERNAL_IPS[v[0]] + '"';
+                whitelisted = true;
+            } else if (IP_BLACKLIST['host:' + v[0]]) {
+                cls.push('blacklisted');
+                extra = ' title="Blacklisted: ' + $.esc(IP_BLACKLIST['host:' + v[0]]) + '"';
+            } else if (IP_WHITELIST['host:' + v[0]]) {
+                cls.push('whitelisted');
+                extra = ' title="Whitelisted: ' + $.esc(IP_WHITELIST['host:' + v[0]]) + '"';
+                whitelisted = true;
             }
          total += v[2];
-            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td><button class="block" title="blacklist this IP" onclick="blacklistIp(\'' + v[0] + '\', \'' + v[1] + '\')">BLOCK</button></td></tr>');
+            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td>' + (whitelisted ? '' : '<button class="block" title="blacklist this IP" onclick="blacklistIp(\'' + v[0] + '\', \'' + v[1] + '\')">Block</button>') + '</td></tr>');
         });
       tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-status-codes table');

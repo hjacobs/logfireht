@@ -7,6 +7,9 @@ table {
     background: #fff;
     border: 1px solid #69c;
 }
+form {
+    margin: 0;
+}
 a {
     text-decoration: none;
     color: #0645AD;
@@ -64,6 +67,12 @@ button.stopped:hover {
 .internal-user-agent td a {
     color: #aaa;
 }
+tr.blacklisted td {
+    background: #ffdddd;
+}
+tr.whitelisted td {
+    background: #ddffdd;
+}
 #hdr {
     position: fixed;
     width: 100%;
@@ -79,6 +88,7 @@ button.stopped:hover {
     font-size: 14px;
     margin: 0;
     padding: 8px 10px;
+    float: left;
 }
 #hdr div {
     float: left;
@@ -86,7 +96,8 @@ button.stopped:hover {
 }
 #hdr button {
     float: right;
-   margin-right: 10px;
+    margin-right: 10px;
+    text-transform: uppercase;
 }
 #hdr em {
     position: absolute;
@@ -127,6 +138,19 @@ button.block {
 button.block:hover {
     background: transparent url(/static/img/block_hover.png) no-repeat 0 0;
 }
+button.remove {
+    border: none;
+    background: transparent url(/static/img/remove.png) no-repeat 0 0;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin: 0;
+    text-indent: 32px;
+    overflow: hidden;
+    cursor: pointer;
+}
+button.remove:hover {
+}
 
 .totals td {
    border-top: 1px solid #bbb;
@@ -157,4 +181,14 @@ button.block:hover {
 #flash-message.error {
     color: #D8000C;
     background-color: #FFBABA;
+}
+
+.form {
+    border: 1px solid #ccc;
+    background: #f7f7f7;
+    padding: 4px;
+    margin-bottom: 10px;
+}
+#ip-blacklist {
+    padding-bottom: 10px;
 }
