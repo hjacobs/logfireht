@@ -147,9 +147,8 @@ var FILE_NAMES = {{ file_names|json }};
 var INTERNAL_IPS = {{ internal_ips|json }};
 var INTERNAL_URLS = {{ internal_urls|json }};
 var INTERNAL_USER_AGENTS = {{ internal_user_agents|json }};
-var IP_BLACKLIST = {{ ip_blacklist|json }};
-var IP_WHITELIST = {{ ip_whitelist|json }};
-
+var IP_BLACKLIST = prepareBlacklist({{ ip_blacklist|json }});
+var IP_WHITELIST = prepareBlacklist({{ ip_whitelist|json }});
 
 var getClass = function(cls, i) {
     if (i % 2 == 0) {
@@ -218,16 +217,17 @@ var updateStatistics = function(data) {
             cls = [];
             extra = '';
             var whitelisted = false;
+            var entry = null;
             if (INTERNAL_IPS[v[0]]) {
                 cls.push('internal-ip');
                 extra = ' title="Own IP: ' + INTERNAL_IPS[v[0]] + '"';
                 whitelisted = true;
-            } else if (IP_BLACKLIST['host:' + v[0]]) {
+            } else if (entry = getBlacklistEntry(IP_BLACKLIST, v[0])) {
                 cls.push('blacklisted');
-                extra = ' title="Blacklisted: ' + $.esc(IP_BLACKLIST['host:' + v[0]]) + '"';
-            } else if (IP_WHITELIST['host:' + v[0]]) {
+                extra = ' title="Blacklisted: ' + $.esc(entry) + '"';
+            } else if (entry = getBlacklistEntry(IP_WHITELIST, v[0])) {
                 cls.push('whitelisted');
-                extra = ' title="Whitelisted: ' + $.esc(IP_WHITELIST['host:' + v[0]]) + '"';
+                extra = ' title="Whitelisted: ' + $.esc(entry) + '"';
                 whitelisted = true;
             }
          total += v[2];
