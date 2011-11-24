@@ -347,11 +347,13 @@ class LogReader(Thread):
                     break
                 time.sleep(1.0)
                 waits += 1
-                if waits > 4:
-                    # no new lines for 5 seconds: re-open log file
+                if waits > 9:
+                    # no new lines for 10 seconds: re-open log file
                     # (could be logrotate)
                     fd.close()
                     fd = open(self.fname, 'rb')
+                    if where < os.path.getsize(self.fname):
+                        fd.seek(where)
                     waits = 0
         finally:
             fd.close()
