@@ -266,7 +266,7 @@ var updateStatistics = function(data) {
             tld = tld[0].split('.');
             tld = tld[tld.length-1];
          total += v[1];
-            tbl.append('<tr' + getClass(cls, i) + '><td>' + getFlag(tld) + '</td><td>' + getLink(ts, 'path', v[0].substring(v[0].indexOf('/')), v[0]) + '</td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td><td><button class="block" title="blacklist this URL (all VHosts!)">BLOCK</button></tr>');
+            tbl.append('<tr' + getClass(cls, i) + '><td>' + getFlag(tld) + '</td><td>' + getLink(ts, 'path', v[0].substring(v[0].indexOf('/')), v[0]) + ' <a href="http://' +  $.esc(v[0]) + '" class="lnk" target="_blank">&nbsp;</a></td><td class="count">' + v[1] + '</td><td class="count">' + reqPerSec(v[1]) + '</td><td class="percentage">' + percentage(v[1]) + '</td><td><button class="block" title="blacklist this URL (all VHosts!)">BLOCK</button></tr>');
         });
       tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-user-agents table');
@@ -302,15 +302,24 @@ var updateLogEntries = function(ts, field, value, entries, ip_countries) {
     $('#log-entries-filter-value').text(value);
     var tbl = $('#log-entries table');
     tbl.find('tbody tr').remove();
+    var cls, extra, ip, entry;
     $.each(entries, function(i, r) {
         cls = [];
         extra = '';
-        if (INTERNAL_IPS[r[4]]) {
+        ip = r[4];
+        entry = null;
+        if (INTERNAL_IPS[ip]) {
             cls.push('internal-ip');
-            extra = ' title="Own IP: ' + INTERNAL_IPS[r[4]] + '"';
+            extra = ' title="Own IP: ' + INTERNAL_IPS[ip] + '"';
+        } else if (entry = getBlacklistEntry(IP_BLACKLIST, ip)) {
+            cls.push('blacklisted');
+            extra = ' title="Blacklisted: ' + $.esc(entry) + '"';
+        } else if (entry = getBlacklistEntry(IP_WHITELIST, ip)) {
+            cls.push('whitelisted');
+            extra = ' title="Whitelisted: ' + $.esc(entry) + '"';
         }
         tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + r[0].substring(10) + '</td><td>' + getLink(ts, 'fid', r[1], FILE_NAMES[r[1]]) + '</td><td>' + r[3] + '</td><td>'
-            + getFlag(ip_countries[r[4]]) + '</td><td>' +getLink(ts, 'remote_addr', r[4]) + '</td><td align="right">' + (0.001 * r[5]).toFixed(1) + '</td><td>' + r[6] + '</td><td>' + getLink(ts, 'path', r[7]) + '</td><td>' + r[8] + '</td><td>' + truncate(r[9], 30) + '</td><td>' + getLink(ts, 'user_agent', r[10], null, 30) + '</td><td align="right">' + r[11] + '</td><td>' + getLink(ts, 'session_id', r[12], null, 10) + '</td></tr>');
+            + getFlag(ip_countries[r[4]]) + '</td><td>' +getLink(ts, 'remote_addr', r[4]) + '</td><td align="right">' + (0.001 * r[5]).toFixed(1) + '</td><td>' + r[6] + '</td><td>' + getLink(ts, 'path', r[7]) + ' <a href="http://' + $.esc(r[3] + r[7]) + '" class="lnk" target="_blank">&nbsp;</a></td><td>' + r[8] + '</td><td>' + truncate(r[9], 30) + '</td><td>' + getLink(ts, 'user_agent', r[10], null, 30) + '</td><td align="right">' + r[11] + '</td><td>' + getLink(ts, 'session_id', r[12], null, 10) + '</td></tr>');
     });
     $('#log-entries').show();
    $.scrollTo($('#log-entries'));

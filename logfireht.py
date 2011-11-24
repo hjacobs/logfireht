@@ -165,6 +165,12 @@ class Root(object):
             'ip_countries': ip_countries
         })
 
+    def _escape_comment(self, comment):
+        """make sure our black/whitelist comment is safe for most blocking tool formats:
+        Use ASCII only and avoid doublequotes.
+        """
+        return comment.encode('ascii', errors='replace').replace('"', '\'')
+
     @expose
     def blacklist_ip(self, ip=None, comment=None):
         if not is_ip(ip) or not comment:
@@ -178,7 +184,7 @@ class Root(object):
         now = datetime.datetime.now()
         country = geoip.country_code_by_addr(ip, 'unknown')
         # we will encode the comment as ASCII and ignore all non-ascii chars (to make sure the blacklist is read by whatever blocking tool is used)
-        entries[('host', ip)] = '%s (country: %s, time: %s)' % (comment.encode('ascii', errors='replace'), country, now.strftime('%Y-%m-%d %H:%M'))
+        entries[('host', ip)] = '%s (country: %s, time: %s)' % (self._escape_comment(comment), country, now.strftime('%Y-%m-%d %H:%M'))
         self._write_ip_blacklist(entries)
         self._success('IP %s has been blacklisted' % (ip,))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
@@ -196,7 +202,7 @@ class Root(object):
         now = datetime.datetime.now()
         country = geoip.country_code_by_addr(ip, 'unknown')
         # we will encode the comment as ASCII and ignore all non-ascii chars (to make sure the whitelist is read by whatever blocking tool is used)
-        entries[('host', ip)] = '%s (country: %s, time: %s)' % (comment.encode('ascii', errors='replace'), country, now.strftime('%Y-%m-%d %H:%M'))
+        entries[('host', ip)] = '%s (country: %s, time: %s)' % (self._escape_comment(comment), country, now.strftime('%Y-%m-%d %H:%M'))
         self._write_ip_whitelist(entries)
         self._success('IP %s has been whitelisted' % (ip,))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
@@ -314,6 +320,7 @@ class LogReader(Thread):
         fid = self.fid
         receiver = self.receiver
         filt = self.filterdef
+        waits = 0
         fd = open(self.fname, 'rb')
         try:
             self.parser.auto_configure(fd)
@@ -339,6 +346,13 @@ class LogReader(Thread):
                     receiver.eof(fid)
                     break
                 time.sleep(1.0)
+                waits += 1
+                if waits > 4:
+                    # no new lines for 5 seconds: re-open log file
+                    # (could be logrotate)
+                    fd.close()
+                    fd = open(self.fname, 'rb')
+                    waits = 0
         finally:
             fd.close()
 
