@@ -350,10 +350,10 @@ class LogReader(Thread):
                 if waits > 9:
                     # no new lines for 10 seconds: re-open log file
                     # (could be logrotate)
-                    fd.close()
-                    fd = open(self.fname, 'rb')
-                    if where < os.path.getsize(self.fname):
-                        fd.seek(where)
+                    if os.path.getsize(self.fname) < where:
+                        logging.info('File truncated or logrotation: %s' % self.fname)
+                        fd.close()
+                        fd = open(self.fname, 'rb')
                     waits = 0
         finally:
             fd.close()
@@ -571,6 +571,8 @@ def main():
     filterdef.grep = options.grep
     filterdef.time_from = options.time_from
     filterdef.time_to = options.time_to
+
+    logging.basicConfig(level=logging.INFO)
 
     load_geoip()
 
