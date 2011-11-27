@@ -1,0 +1,49 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>logfireht - file status</title>
+<link rel="stylesheet" href="/static/css/base.css" />
+<script src="/static/js/jquery-1.7.min.js"></script>
+<script src="/static/js/jquery.scrollTo-min.js"></script>
+<script src="/static/js/countries.js"></script>
+<script src="/static/js/logfireht.js"></script>
+</head>
+<body>
+
+<div id="hdr">
+    <h1>File Status</h1>
+    <button onclick="document.location.href='/'">Back to Live Monitoring</button>
+</div>
+
+<div id="main">
+
+#if flash_message:
+<div id="flash-message" class="{{ flash_message.type|e }}">
+    {{ flash_message.message|e }}
+</div>
+#endif
+
+
+<div id="file-status">
+    <table>
+    <thead>
+    <tr>
+    <th>#</th><th>Name</th><th>First</th><th>Last</th><th>Count</th>
+    </tr>
+    </thead>
+    <tbody>
+    # for entry in file_status:
+        <tr class="{{ loop.cycle('odd', 'even') }}">
+            <td align="right">{{ loop.index }}</td><td>{{ entry['name'] }}</td>
+            <td>{{ entry['ts_first'] }}</td>
+            <td>{{ entry['ts_last'] }}</td>
+            <td class="count">{{ entry['count'] }}</td>
+        </tr>
+    # endfor
+    </tbody>
+    </table>
+</div>
+
+
+</body>
+</html>

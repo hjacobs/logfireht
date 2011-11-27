@@ -80,6 +80,14 @@ class Root(object):
         }
 
     @expose
+    @jinja(tpl='file_status.html')
+    def file_status(self):
+        return {
+            'file_status': self.aggregator.get_file_status()
+        }
+        
+
+    @expose
     def poll(self):
         return json.dumps(self.aggregator.get_statistics(), separators=(',', ':'))
 
@@ -427,6 +435,19 @@ class LogAggregator(object):
             if e.ts == ts:
                 return e
         return None
+
+    def get_file_status(self):
+        tail = list(self.tail)
+        file_status = [{'name': fn, 'ts_first': None, 'ts_last': None, 'count': 0} for fn in self.file_names]
+        for entry in tail:
+            fs = file_status[entry.fid]
+            fs['count'] += 1
+            if not fs['ts_first'] or entry.ts < fs['ts_first']:
+                fs['ts_first'] = entry.ts
+            if entry.ts > fs['ts_last']:
+                fs['ts_last'] = entry.ts
+        return file_status
+        
 
     def get_statistics(self):
         now = int(time.time() * 1000)
