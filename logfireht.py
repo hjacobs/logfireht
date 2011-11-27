@@ -104,14 +104,16 @@ class Root(object):
             return json.dumps(None)
         log_entries = collections.deque(maxlen=100)
         ip_countries = {}
+        c = 0
         for l in entry.tail:
             if l.matches(field, value):
+                c += 1
                 log_entries.append(l)
                 ip_countries[l.remote_addr] = None
         gi = geoip
         for ip in ip_countries.keys():
             ip_countries[ip] = gi.country_code_by_addr(ip)
-        return json.dumps({'log_entries': list(log_entries), 'statistics': entry.statistics, 'remote_addr_countries': ip_countries}, separators=(',', ':'))
+        return json.dumps({'count': c, 'log_entries': list(log_entries), 'statistics': entry.statistics, 'remote_addr_countries': ip_countries}, separators=(',', ':'))
 
     def _read_ip_blacklist(self):
         fpath = self.options.ip_blacklist['path']

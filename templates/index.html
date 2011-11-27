@@ -122,7 +122,7 @@ function startUpdating() {
 </div>
 
 <div id="log-entries">
-    <h2>Last 100 log entries for <span id="log-entries-filter-field"></span> <span id="log-entries-filter-value"></span></h2>
+    <h2>Last 100 of <span id="log-entries-total"></span> log entries for <span id="log-entries-filter-field"></span> <span id="log-entries-filter-value"></span></h2>
     <table>
     <thead>
     <tr>
@@ -302,7 +302,8 @@ var update = function() {
 
 update();
 
-var updateLogEntries = function(ts, field, value, entries, ip_countries) {
+var updateLogEntries = function(ts, field, value, total_count, entries, ip_countries) {
+    $('#log-entries-total').text(total_count);
     $('#log-entries-filter-field').text(field);
     $('#log-entries-filter-value').text(value);
     var tbl = $('#log-entries table');
@@ -343,7 +344,7 @@ var checkLocationHash = function() {
         var v = p.substring(i+1);
         $.getJSON('/history_entry/' + ts, {field: f, value: v}, function(data) {
             updateStatistics(data.statistics);
-            updateLogEntries(ts, f, v, data.log_entries, data.remote_addr_countries);
+            updateLogEntries(ts, f, v, data.count, data.log_entries, data.remote_addr_countries);
         });
         lastHash = h;
     }
