@@ -1,7 +1,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>logfireht - file status</title>
+<title>logfireht - countries</title>
 <link rel="stylesheet" href="/static/css/base.css" />
 <script src="/static/js/jquery-1.7.min.js"></script>
 <script src="/static/js/jquery.scrollTo-min.js"></script>
@@ -11,7 +11,7 @@
 <body>
 
 <div id="hdr">
-    <h1>File Status</h1>
+    <h1>Countries</h1>
     <button onclick="document.location.href='/'">Back to Live Monitoring</button>
 </div>
 
@@ -24,28 +24,36 @@
 #endif
 
 
-<div id="file-status">
+<div id="countries">
     <table>
     <thead>
     <tr>
-    <th>#</th><th>Name</th><th>First</th><th>Last</th><th>Req</th><th>R/s</th><th>%</th>
+    <th>#</th><th>Flag</th><th>Name</th><th>IPs</th><th>Req</th><th>R/s</th><th>%</th>
     </tr>
     </thead>
     <tbody>
-    # for entry in file_status:
+    # for country_code, count in most_common_countries:
         <tr class="{{ loop.cycle('odd', 'even') }}">
-            <td align="right">{{ loop.index }}</td><td>{{ entry['name'] }}</td>
-            <td>{{ entry['ts_first'] }}</td>
-            <td>{{ entry['ts_last'] }}</td>
-            <td class="count">{{ entry['count'] }}</td>
-            <td class="count">{{ '%.2f'|format(entry['count'] / tail_span) }}</td>
-            <td class="count">{{ '%.2f'|format(entry['count']*100/tail_size) }}</td>
+            <td align="right">{{ loop.index }}</td>
+            <td class="flag" title="{{ country_code }}"></td>
+            <td class="country-name">{{ country_code }}</td>
+            <td class="count">{{ ips_by_country[country_code] }}</td>
+            <td class="count">{{ count }}</td>
+            <td class="count">{{ '%.2f'|format(count / tail_span) }}</td>
+            <td class="count">{{ '%.2f'|format(count*100/tail_size) }}</td>
         </tr>
     # endfor
     </tbody>
     </table>
 </div>
 
+<script>
+insertFlags();
+
+$('td.country-name').each(function() {
+    $(this).text(COUNTRY_NAMES[$(this).text()]);
+});
+</script>
 
 </body>
 </html>

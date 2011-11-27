@@ -82,10 +82,16 @@ class Root(object):
     @expose
     @jinja(tpl='file_status.html')
     def file_status(self):
-        return {
-            'file_status': self.aggregator.get_file_status()
-        }
+        stats = self.aggregator.get_file_status()
+        stats['tail_span'] = parse_timestamp(stats['tail_end']) - parse_timestamp(stats['tail_start'])
+        return stats
         
+    @expose
+    @jinja(tpl='countries.html')
+    def countries(self):
+        stats = self.aggregator.get_country_statistics()
+        stats['tail_span'] = parse_timestamp(stats['tail_end']) - parse_timestamp(stats['tail_start'])
+        return stats
 
     @expose
     def poll(self):
@@ -437,6 +443,7 @@ class LogAggregator(object):
         return None
 
     def get_file_status(self):
+        now = int(time.time() * 1000)
         tail = list(self.tail)
         file_status = [{'name': fn, 'ts_first': None, 'ts_last': None, 'count': 0} for fn in self.file_names]
         for entry in tail:
@@ -446,7 +453,35 @@ class LogAggregator(object):
                 fs['ts_first'] = entry.ts
             if entry.ts > fs['ts_last']:
                 fs['ts_last'] = entry.ts
-        return file_status
+        return {
+            'ts': now,
+            'tail_start': tail[0].ts if tail else None,
+            'tail_end': tail[-1].ts if tail else None,
+            'tail_size': len(tail),
+            'file_status': file_status
+        }
+
+    def get_country_statistics(self):
+        now = int(time.time() * 1000)
+        tail = list(self.tail)
+        gi = geoip
+        ip_country = {}
+        counts_by_country = collections.Counter()
+        ips_by_country = collections.Counter()
+        for entry in tail:
+            if entry.remote_addr not in ip_country:
+                ip_country[entry.remote_addr] = gi.country_code_by_addr(entry.remote_addr)
+                ips_by_country[ip_country[entry.remote_addr]] += 1
+            counts_by_country[ip_country[entry.remote_addr]] += 1
+        return {
+            'ts': now,
+            'tail_start': tail[0].ts if tail else None,
+            'tail_end': tail[-1].ts if tail else None,
+            'tail_size': len(tail),
+            'most_common_countries': counts_by_country.most_common(300),
+            'ips_by_country': ips_by_country
+        }
+        
         
 
     def get_statistics(self):
