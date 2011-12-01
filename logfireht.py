@@ -85,7 +85,7 @@ class Root(object):
         stats = self.aggregator.get_file_status()
         stats['tail_span'] = parse_timestamp(stats['tail_end']) - parse_timestamp(stats['tail_start'])
         return stats
-        
+
     @expose
     @jinja(tpl='countries.html')
     def countries(self):
@@ -483,8 +483,8 @@ class LogAggregator(object):
             'most_common_countries': counts_by_country.most_common(300),
             'ips_by_country': ips_by_country
         }
-        
-        
+
+
 
     def get_statistics(self):
         now = int(time.time() * 1000)
@@ -568,7 +568,6 @@ def load_geoip():
         print 'WARNING: pygeoip module not found'
     except IOError:
         print 'WARNING: GeoIP.dat not found'
-        geoip = MockGeoIP()
 
 def main():
     Watcher()

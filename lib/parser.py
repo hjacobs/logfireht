@@ -4,7 +4,7 @@ import collections
 import re
 import traceback
 
-class LogEntry(collections.namedtuple('LogEntry', 'ts fid i vhost remote_addr duration method path status_code referrer user_agent response_size session_id')):
+class LogEntry(collections.namedtuple('LogEntry', 'ts fid i vhost remote_addr duration method path status_code referrer user_agent response_size session_id forwarded_for')):
     def matches(self, field, value):
         if field == 'duration':
             return self.duration/250000 == int(value)
@@ -33,7 +33,7 @@ class RecoverableParseError(Exception):
 class AccessLogParser(object):
     """parse apache access log with the following format:
 
-    LogFormat "%V:%p %a %l %u %t %T %D \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %{X-Forwarded-Protocol}i \"%{Location}o\" %{JSESSIONID}C"
+    LogFormat "%V:%p %a %l %u %t %T %D \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %{X-Forwarded-Protocol}i %{X-Forwarded-For}i \"%{Location}o\" %{JSESSIONID}C"
     (see http://httpd.apache.org/docs/2.0/mod/mod_log_config.html)
     """
     def __init__(self):
@@ -78,8 +78,9 @@ class AccessLogParser(object):
                 response_size = 0 if response_size == '-' else int(response_size)
                 referrer = last_cols[2]
                 user_agent = last_cols[4]
+                forwarded_proto, forwarded_for = last_cols[5][1:-1].split(' ', 1)
                 session_id = last_cols[-1].strip()
-                yield LogEntry(fid=fid, ts=ts, i=i, vhost=vhost, remote_addr=remote_addr, duration=duration, method=method, path=path, status_code=status_code, referrer=referrer, user_agent=user_agent, response_size=response_size, session_id=session_id)
+                yield LogEntry(fid=fid, ts=ts, i=i, vhost=vhost, remote_addr=remote_addr, duration=duration, method=method, path=path, status_code=status_code, referrer=referrer, user_agent=user_agent, response_size=response_size, session_id=session_id, forwarded_for=forwarded_for)
             except Exception:
                 print 'ERROR parsing line from %d:' % fid, repr(line)
                 traceback.print_exc()
