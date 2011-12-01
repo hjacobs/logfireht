@@ -12,6 +12,7 @@ import signal
 import sys
 import time
 import lib.jinjatool
+from netaddr import IPAddress, IPNetwork
 from lib.parser import AccessLogParser, RecoverableParseError
 
 from threading import Thread
@@ -418,8 +419,9 @@ class Watcher:
         except OSError: pass
 
 class LogAggregator(object):
-    def __init__(self, file_names, follow=False, tail_size=DEFAULT_TAIL_SIZE):
+    def __init__(self, file_names, options, follow=False, tail_size=DEFAULT_TAIL_SIZE):
         self.file_names = file_names
+        self.options = options
         self.follow = follow
         n = len(file_names)
         self.open_files = set(range(n))
@@ -492,7 +494,17 @@ class LogAggregator(object):
             return self.history[-1].statistics
         tail = list(self.tail)
         gi = geoip
-        counts_by_remote_addr = collections.Counter([ entry.remote_addr for entry in tail])
+        if self.options.trusted_proxy_networks:
+            counts_by_remote_addr = collections.Counter()
+            for entry in tail:
+                if entry.forwarded_for != '-':
+                    for cidr, name in self.options.trusted_proxy_networks.items():
+                        if IPAddress(entry.remote_addr) in IPNetwork(cidr):
+                            counts_by_remote_addr[(entry.forwarded_for, name)] += 1
+                else:
+                    counts_by_remote_addr[(entry.remote_addr, None)] += 1
+        else:
+            counts_by_remote_addr = collections.Counter([ (entry.remote_addr, None) for entry in tail])
         counts_by_vhost = collections.Counter([ entry.vhost for entry in tail])
         counts_by_path = collections.Counter([ entry.vhost + entry.path for entry in tail])
         counts_by_status_code = collections.Counter([ entry.status_code for entry in tail])
@@ -503,7 +515,7 @@ class LogAggregator(object):
             'tail_start': tail[0].ts if tail else None,
             'tail_end': tail[-1].ts if tail else None,
             'tail_size': len(tail),
-            'most_common_remote_addrs': [(ip, gi.country_code_by_addr(ip), count) for ip, count in counts_by_remote_addr.most_common(50) ],
+            'most_common_remote_addrs': [(ip[0], gi.country_code_by_addr(ip[0]), ip[1], count) for ip, count in counts_by_remote_addr.most_common(50) ],
             'most_common_vhosts': counts_by_vhost.most_common(50),
             'most_common_paths': counts_by_path.most_common(50),
             'most_common_status_codes': counts_by_status_code.most_common(50),
@@ -527,8 +539,8 @@ class OutputThread(Thread):
         stats = self.aggregator.get_statistics()
         fd.write('%s - %s (%d requests)\n' % (stats['tail_start'], stats['tail_end'], stats['tail_size']))
         fd.write('Most common IPs:\n')
-        for ip, country_code, count in  stats['most_common_remote_addrs']:
-            fd.write(' %2s %15s %5d\n' % (country_code, ip, count))
+        for ip, country_code, via, count in  stats['most_common_remote_addrs']:
+            fd.write(' %2s %15s via %10s %5d\n' % (country_code, ip, via, count))
         fd.write('Most common VHosts:\n')
         for vhost, count in  stats['most_common_vhosts']:
             fd.write(' %70s %5d\n' % (vhost, count))
@@ -594,6 +606,9 @@ def main():
             'internal_ips': {
                 '127.0.0.1': 'Localhost'
             },
+            'trusted_proxy_networks': {
+                '127.0.0.0/8': 'Localnet'
+            },
             'internal_urls': {},
             'internal_user_agents': {},
             'ip_blacklist': {
@@ -635,7 +650,7 @@ def main():
 
     used_file_names = set()
     file_names = args
-    aggregator = LogAggregator(file_names, follow=options.follow, tail_size=options.tail_size)
+    aggregator = LogAggregator(file_names, options, follow=options.follow, tail_size=options.tail_size)
     readers = []
     fid = 0
     for fname_with_name in file_names:

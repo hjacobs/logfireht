@@ -53,7 +53,7 @@ function startUpdating() {
     <table>
     <thead>
     <tr>
-    <th style="font-size:9px" title="Country Code">CC</th><th>IP</th><th>Req</th><th>R/s</th><th>%</th><th></th>
+    <th style="font-size:9px" title="Country Code">CC</th><th>IP</th><th title="via proxy?">P</th><th>Req</th><th>R/s</th><th>%</th><th></th>
     </tr>
     </thead>
     <tbody>
@@ -235,10 +235,10 @@ var updateStatistics = function(data) {
                 extra = ' title="Whitelisted: ' + $.esc(entry) + '"';
                 whitelisted = true;
             }
-         total += v[2];
-            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td class="count">' + v[2] + '</td><td class="count">' + reqPerSec(v[2]) + '</td><td class="percentage">' + percentage(v[2]) + '</td><td>' + (whitelisted ? '' : '<button class="block" title="blacklist this IP" onclick="blacklistIp(\'' + v[0] + '\', \'' + v[1] + '\')">Block</button>') + '</td></tr>');
+         total += v[3];
+            tbl.append('<tr' + getClass(cls, i) + extra + '><td>' + getFlag(v[1]) + '</td><td>' + getLink(ts, 'remote_addr', v[0]) + '</td><td' + (v[2] ? ' title="via ' + v[2] + '">P' : '>') + '</td><td class="count">' + v[3] + '</td><td class="count">' + reqPerSec(v[3]) + '</td><td class="percentage">' + percentage(v[3]) + '</td><td>' + (whitelisted ? '' : '<button class="block" title="blacklist this IP" onclick="blacklistIp(\'' + v[0] + '\', \'' + v[1] + '\')">Block</button>') + '</td></tr>');
         });
-      tbl.append('<tr class="totals"><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
+      tbl.append('<tr class="totals"><td></td><td></td><td></td><td class="count">' + total + '</td><td class="count">' + reqPerSec(total) + '</td><td class="percentage">' + percentage(total) + '</td><td></td></tr>');
         var tbl = $('#most-common-status-codes table');
         tbl.find('tbody tr').remove();
         $.each(data.most_common_status_codes, function(i, v) {
