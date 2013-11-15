@@ -13,6 +13,8 @@ Requirements
 * pygeoip for IP country lookups
 * GeoIP.dat database from http://www.maxmind.com/app/geoip_country
 
+You can use "sudo pip install -r requirements.txt" to install Python dependencies.
+
 
 Getting Started
 ---------------
