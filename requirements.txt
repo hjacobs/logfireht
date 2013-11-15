@@ -1,0 +1,4 @@
+Jinja2>=2.7
+CherryPy
+netaddr
+pygeoip

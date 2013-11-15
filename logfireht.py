@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import collections
 import cherrypy
@@ -18,36 +19,40 @@ from lib.parser import AccessLogParser, RecoverableParseError
 from threading import Thread
 from optparse import OptionParser
 
-
 expose = cherrypy.expose
 jinja = cherrypy.tools.jinja
 
-class GeoIPWrapper(object):
+
+class GeoIpwrapper(object):
+
     def __init__(self, inner):
         self.inner = inner
+
     def country_code_by_addr(self, ip, default=''):
         if self.inner:
             try:
                 return self.inner.country_code_by_addr(ip) or default
             except:
                 logging.exception('Failed to get country code for IP %s' % ip)
-        return default;
+        return default
 
-geoip = GeoIPWrapper(None)
+
+geoip = GeoIpwrapper(None)
 
 REGEX_GROUP_PATTERN = re.compile('\(\?P<(\w*)>[^)]*\)')
 
 # this IP regex is not strict, it's just used for a quick sanity test!
 IP_PATTERN = re.compile('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$|^[0-9a-f:]+:[0-9a-f:]+$')
 
+
 def is_ip(ip):
     return ip and IP_PATTERN.match(ip)
 
+
 class Root(object):
-    _cp_config = {
-        'tools.staticdir.root': os.path.dirname(os.path.abspath(__file__)),
-        'tools.staticfile.root': os.path.dirname(os.path.abspath(__file__))
-    }
+
+    _cp_config = {'tools.staticdir.root': os.path.dirname(os.path.abspath(__file__)),
+                  'tools.staticfile.root': os.path.dirname(os.path.abspath(__file__))}
 
     def __init__(self, options, aggregator):
         self.options = options
@@ -76,8 +81,8 @@ class Root(object):
             'internal_ips': self.options.internal_ips,
             'internal_urls': self.options.internal_urls,
             'internal_user_agents': self.options.internal_user_agents,
-            'ip_blacklist': dict([ (k[0] + ':' + k[1], v) for k, v in ip_blacklist.items() ]),
-            'ip_whitelist': dict([ (k[0] + ':' + k[1], v) for k, v in ip_whitelist.items() ]),
+            'ip_blacklist': dict([(k[0] + ':' + k[1], v) for (k, v) in ip_blacklist.items()]),
+            'ip_whitelist': dict([(k[0] + ':' + k[1], v) for (k, v) in ip_whitelist.items()]),
         }
 
     @expose
@@ -114,7 +119,12 @@ class Root(object):
         gi = geoip
         for ip in ip_countries.keys():
             ip_countries[ip] = gi.country_code_by_addr(ip)
-        return json.dumps({'count': c, 'log_entries': list(log_entries), 'statistics': entry.statistics, 'remote_addr_countries': ip_countries}, separators=(',', ':'))
+        return json.dumps({
+            'count': c,
+            'log_entries': list(log_entries),
+            'statistics': entry.statistics,
+            'remote_addr_countries': ip_countries,
+        }, separators=(',', ':'))
 
     def _read_ip_blacklist(self):
         fpath = self.options.ip_blacklist['path']
@@ -137,7 +147,8 @@ class Root(object):
         lines = []
         for key, comment in sorted(entries.items()):
             t, address = key
-            lines.append(entry_template.replace('##type##', t).replace('##address##', address).replace('##comment##', comment))
+            lines.append(entry_template.replace('##type##', t).replace('##address##', address).replace('##comment##',
+                         comment))
         with open(fpath, 'wb') as fd:
             fd.writelines(lines)
 
@@ -162,7 +173,8 @@ class Root(object):
         lines = []
         for key, comment in sorted(entries.items()):
             t, address = key
-            lines.append(entry_template.replace('##type##', t).replace('##address##', address).replace('##comment##', comment))
+            lines.append(entry_template.replace('##type##', t).replace('##address##', address).replace('##comment##',
+                         comment))
         with open(fpath, 'wb') as fd:
             fd.writelines(lines)
 
@@ -176,16 +188,14 @@ class Root(object):
         for t, ip in itertools.chain(ip_blacklist.keys(), ip_whitelist.keys()):
             if t == 'host':
                 ip_countries[ip] = gi.country_code_by_addr(ip)
-        return self._add_flash_msg({
-            'ip_blacklist': ip_blacklist,
-            'ip_whitelist': ip_whitelist,
-            'ip_countries': ip_countries
-        })
+        return self._add_flash_msg({'ip_blacklist': ip_blacklist, 'ip_whitelist': ip_whitelist,
+                                   'ip_countries': ip_countries})
 
     def _escape_comment(self, comment):
         """make sure our black/whitelist comment is safe for most blocking tool formats:
         Use ASCII only and avoid doublequotes.
         """
+
         return comment.encode('ascii', errors='replace').replace('"', '\'')
 
     @expose
@@ -195,15 +205,16 @@ class Root(object):
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
         entries = self._read_ip_blacklist()
         if ('host', ip) in entries:
-            self._success('IP %s was already blacklisted' % (ip,))
+            self._success('IP %s was already blacklisted' % (ip, ))
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
         now = datetime.datetime.now()
         country = geoip.country_code_by_addr(ip, 'unknown')
         # we will encode the comment as ASCII and ignore all non-ascii chars (to make sure the blacklist is read by whatever blocking tool is used)
-        entries[('host', ip)] = '%s (country: %s, time: %s)' % (self._escape_comment(comment), country, now.strftime('%Y-%m-%d %H:%M'))
+        entries[('host', ip)] = '%s (country: %s, time: %s)' % (self._escape_comment(comment), country,
+                now.strftime('%Y-%m-%d %H:%M'))
         self._write_ip_blacklist(entries)
-        self._success('IP %s has been blacklisted' % (ip,))
+        self._success('IP %s has been blacklisted' % (ip, ))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
     @expose
@@ -213,15 +224,16 @@ class Root(object):
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
         entries = self._read_ip_whitelist()
         if ('host', ip) in entries:
-            self._success('IP %s was already whitelisted' % (ip,))
+            self._success('IP %s was already whitelisted' % (ip, ))
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
         now = datetime.datetime.now()
         country = geoip.country_code_by_addr(ip, 'unknown')
         # we will encode the comment as ASCII and ignore all non-ascii chars (to make sure the whitelist is read by whatever blocking tool is used)
-        entries[('host', ip)] = '%s (country: %s, time: %s)' % (self._escape_comment(comment), country, now.strftime('%Y-%m-%d %H:%M'))
+        entries[('host', ip)] = '%s (country: %s, time: %s)' % (self._escape_comment(comment), country,
+                now.strftime('%Y-%m-%d %H:%M'))
         self._write_ip_whitelist(entries)
-        self._success('IP %s has been whitelisted' % (ip,))
+        self._success('IP %s has been whitelisted' % (ip, ))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
     @expose
@@ -230,11 +242,11 @@ class Root(object):
             self._error('Invalid IP')
         entries = self._read_ip_blacklist()
         if ('host', ip) not in entries:
-            self._error('IP %s was not found on the blacklist' % (ip,))
+            self._error('IP %s was not found on the blacklist' % (ip, ))
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
         del entries[('host', ip)]
         self._write_ip_blacklist(entries)
-        self._success('IP %s has been removed from the blacklist' % (ip,))
+        self._success('IP %s has been removed from the blacklist' % (ip, ))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
     @expose
@@ -243,22 +255,22 @@ class Root(object):
             self._error('Invalid IP')
         entries = self._read_ip_whitelist()
         if ('host', ip) not in entries:
-            self._error('IP %s was not found on the whitelist' % (ip,))
+            self._error('IP %s was not found on the whitelist' % (ip, ))
             raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
         del entries[('host', ip)]
         self._write_ip_whitelist(entries)
-        self._success('IP %s has been removed from the whitelist' % (ip,))
+        self._success('IP %s has been removed from the whitelist' % (ip, ))
         raise cherrypy.HTTPRedirect(cherrypy.url('/blacklists'))
 
 
 HistoryEntry = collections.namedtuple('HistoryEntry', 'ts tail statistics')
-
 
 DEFAULT_TAIL_SIZE = 10000
 
 
 def parse_timestamp(ts):
     """takes a timestamp such as 2011-09-18 16:00:01,123"""
+
     if len(ts) < 19:
         ts += ':00'
     struct = time.strptime(ts[:19], '%Y-%m-%d %H:%M:%S')
@@ -266,8 +278,20 @@ def parse_timestamp(ts):
 
 
 class LogReader(Thread):
-    def __init__(self, fid, fname, parser, receiver, tail=False, follow=False, filterdef=None, tail_size=DEFAULT_TAIL_SIZE):
-        Thread.__init__(self, name='LogReader-%d' % (fid,))
+
+    def __init__(
+        self,
+        fid,
+        fname,
+        parser,
+        receiver,
+        tail=False,
+        follow=False,
+        filterdef=None,
+        tail_size=DEFAULT_TAIL_SIZE,
+    ):
+
+        Thread.__init__(self, name='LogReader-%d' % (fid, ))
         self.fid = fid
         self.fname = fname
         self.parser = parser
@@ -279,6 +303,7 @@ class LogReader(Thread):
 
     def _seek_tail(self, fd, n):
         """seek to start of "tail" (last n lines)"""
+
         l = os.path.getsize(self.fname)
         s = -1024 * n
         if s * -1 >= l:
@@ -300,6 +325,7 @@ class LogReader(Thread):
 
     def _seek_time(self, fd, ts):
         """try to seek to our start time"""
+
         s = os.path.getsize(self.fname)
         fd.seek(0)
 
@@ -377,6 +403,7 @@ class LogReader(Thread):
 
 
 class Watcher:
+
     """this class solves two problems with multithreaded
     programs in Python, (1) a signal might be delivered
     to any thread (which is just a malfeature) and (2) if
@@ -397,6 +424,7 @@ class Watcher:
             thread waits for a KeyboardInterrupt and then kills
             the child thread.
         """
+
         self.child = os.fork()
         if self.child == 0:
             return
@@ -416,9 +444,12 @@ class Watcher:
     def kill(self):
         try:
             os.kill(self.child, signal.SIGKILL)
-        except OSError: pass
+        except OSError:
+            pass
+
 
 class LogAggregator(object):
+
     def __init__(self, file_names, options, follow=False, tail_size=DEFAULT_TAIL_SIZE):
         self.file_names = file_names
         self.options = options
@@ -449,7 +480,12 @@ class LogAggregator(object):
     def get_file_status(self):
         now = int(time.time() * 1000)
         tail = list(self.tail)
-        file_status = [{'name': fn, 'ts_first': None, 'ts_last': None, 'count': 0} for fn in self.file_names]
+        file_status = [{
+            'name': fn,
+            'ts_first': None,
+            'ts_last': None,
+            'count': 0,
+        } for fn in self.file_names]
         for entry in tail:
             fs = file_status[entry.fid]
             fs['count'] += 1
@@ -459,10 +495,10 @@ class LogAggregator(object):
                 fs['ts_last'] = entry.ts
         return {
             'ts': now,
-            'tail_start': tail[0].ts if tail else None,
-            'tail_end': tail[-1].ts if tail else None,
+            'tail_start': (tail[0].ts if tail else None),
+            'tail_end': (tail[-1].ts if tail else None),
             'tail_size': len(tail),
-            'file_status': file_status
+            'file_status': file_status,
         }
 
     def get_country_statistics(self):
@@ -479,14 +515,12 @@ class LogAggregator(object):
             counts_by_country[ip_country[entry.remote_addr]] += 1
         return {
             'ts': now,
-            'tail_start': tail[0].ts if tail else None,
-            'tail_end': tail[-1].ts if tail else None,
+            'tail_start': (tail[0].ts if tail else None),
+            'tail_end': (tail[-1].ts if tail else None),
             'tail_size': len(tail),
             'most_common_countries': counts_by_country.most_common(300),
-            'ips_by_country': ips_by_country
+            'ips_by_country': ips_by_country,
         }
-
-
 
     def get_statistics(self):
         now = int(time.time() * 1000)
@@ -504,29 +538,32 @@ class LogAggregator(object):
                 else:
                     counts_by_remote_addr[(entry.remote_addr, None)] += 1
         else:
-            counts_by_remote_addr = collections.Counter([ (entry.remote_addr, None) for entry in tail])
-        counts_by_vhost = collections.Counter([ entry.vhost for entry in tail])
-        counts_by_path = collections.Counter([ entry.vhost + entry.path for entry in tail])
-        counts_by_status_code = collections.Counter([ entry.status_code for entry in tail])
-        counts_by_user_agent = collections.Counter([ entry.user_agent for entry in tail])
-        counts_by_duration = collections.Counter([ entry.duration/250000 for entry in tail ])
+            counts_by_remote_addr = collections.Counter([(entry.remote_addr, None) for entry in tail])
+        counts_by_vhost = collections.Counter([entry.vhost for entry in tail])
+        counts_by_path = collections.Counter([entry.vhost + entry.path for entry in tail])
+        counts_by_status_code = collections.Counter([entry.status_code for entry in tail])
+        counts_by_user_agent = collections.Counter([entry.user_agent for entry in tail])
+        counts_by_duration = collections.Counter([entry.duration / 250000 for entry in tail])
         statistics = {
             'ts': now,
-            'tail_start': tail[0].ts if tail else None,
-            'tail_end': tail[-1].ts if tail else None,
+            'tail_start': (tail[0].ts if tail else None),
+            'tail_end': (tail[-1].ts if tail else None),
             'tail_size': len(tail),
-            'most_common_remote_addrs': [(ip[0], gi.country_code_by_addr(ip[0]), ip[1], count) for ip, count in counts_by_remote_addr.most_common(50) ],
+            'most_common_remote_addrs': [(ip[0], gi.country_code_by_addr(ip[0]), ip[1], count) for (ip, count) in
+                                         counts_by_remote_addr.most_common(50)],
             'most_common_vhosts': counts_by_vhost.most_common(50),
             'most_common_paths': counts_by_path.most_common(50),
             'most_common_status_codes': counts_by_status_code.most_common(50),
             'most_common_user_agents': counts_by_user_agent.most_common(50),
-            'most_common_durations': counts_by_duration.most_common(50)
+            'most_common_durations': counts_by_duration.most_common(50),
         }
         histentry = HistoryEntry(ts=now, tail=tail, statistics=statistics)
         self.history.append(histentry)
         return statistics
 
+
 class OutputThread(Thread):
+
     def __init__(self, aggregator, fd=sys.stdout):
         Thread.__init__(self, name='OutputThread')
         self.aggregator = aggregator
@@ -539,13 +576,13 @@ class OutputThread(Thread):
         stats = self.aggregator.get_statistics()
         fd.write('%s - %s (%d requests)\n' % (stats['tail_start'], stats['tail_end'], stats['tail_size']))
         fd.write('Most common IPs:\n')
-        for ip, country_code, via, count in  stats['most_common_remote_addrs']:
+        for ip, country_code, via, count in stats['most_common_remote_addrs']:
             fd.write(' %2s %15s via %10s %5d\n' % (country_code, ip, via, count))
         fd.write('Most common VHosts:\n')
-        for vhost, count in  stats['most_common_vhosts']:
+        for vhost, count in stats['most_common_vhosts']:
             fd.write(' %70s %5d\n' % (vhost, count))
         fd.write('Most common URLs:\n')
-        for url, count in  stats['most_common_paths']:
+        for url, count in stats['most_common_paths']:
             fd.write(' %70s %5d\n' % (url[:70], count))
 
     def run(self):
@@ -554,7 +591,9 @@ class OutputThread(Thread):
             time.sleep(0.5)
         self.write_statistics()
 
+
 class LogFilter(object):
+
     def __init__(self):
         self.grep = None
         self.time_from = None
@@ -571,57 +610,45 @@ class LogFilter(object):
 
         return ok
 
+
 def load_geoip():
     global geoip
     try:
         import pygeoip
-        geoip = GeoIPWrapper(pygeoip.GeoIP('GeoIP.dat', flags=pygeoip.MEMORY_CACHE))
+        geoip = GeoIpwrapper(pygeoip.GeoIP('GeoIP.dat', flags=pygeoip.MEMORY_CACHE))
     except ImportError:
         print 'WARNING: pygeoip module not found'
     except IOError:
         print 'WARNING: GeoIP.dat not found'
 
+
 def main():
     Watcher()
     parser = OptionParser(usage='Usage: %prog [OPTION]... [FILE]...')
-    parser.add_option('-s', '--server', action='store_true',
-                      help='start HTTP server')
+    parser.add_option('-s', '--server', action='store_true', help='start HTTP server')
     parser.add_option('-f', '--follow', action='store_true', dest='follow',
                       help='keep file open reading new lines (like tail)')
-    parser.add_option('-t', '--tail', dest='tail', action='store_true',
-                      help='show last N lines (default %d)' % DEFAULT_TAIL_SIZE)
+    parser.add_option('-t', '--tail', dest='tail', action='store_true', help='show last N lines (default %d)'
+                      % DEFAULT_TAIL_SIZE)
     parser.add_option('-n', '--lines', dest='tail_size', default=DEFAULT_TAIL_SIZE, type='int', metavar='N',
                       help='show last N lines (instead of default %d)' % DEFAULT_TAIL_SIZE)
-    parser.add_option('-g', '--grep', dest='grep', metavar='PATTERN',
-                      help='only show log entries matching pattern')
+    parser.add_option('-g', '--grep', dest='grep', metavar='PATTERN', help='only show log entries matching pattern')
     parser.add_option('--time-from', dest='time_from', metavar='DATETIME',
                       help='only show log entries starting at DATETIME')
-    parser.add_option('--time-to', dest='time_to', metavar='DATETIME',
-                      help='only show log entries until DATETIME')
+    parser.add_option('--time-to', dest='time_to', metavar='DATETIME', help='only show log entries until DATETIME')
 
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
 
-    merged_config = {
-        'options': {
-            'internal_ips': {
-                '127.0.0.1': 'Localhost'
-            },
-            'trusted_proxy_networks': {
-                '127.0.0.0/8': 'Localnet'
-            },
-            'internal_urls': {},
-            'internal_user_agents': {},
-            'ip_blacklist': {
-                'path': 'ip_blacklist.txt',
-                'format': '(?P<type>\w+)\s+(?P<address>[0-9a-f./:]+)\s+(?P<comment>.*)'
-            },
-            'ip_whitelist': {
-                'path': 'ip_whitelist.txt',
-                'format': '(?P<type>\w+)\s+(?P<address>[0-9a-f./:]+)\s+(?P<comment>.*)'
-            }
-        },
-        'files': []
-    }
+    merged_config = {'options': {
+        'internal_ips': {'127.0.0.1': 'Localhost'},
+        'trusted_proxy_networks': {'127.0.0.0/8': 'Localnet'},
+        'internal_urls': {},
+        'internal_user_agents': {},
+        'ip_blacklist': {'path': 'ip_blacklist.txt',
+                         'format': '(?P<type>\w+)\s+(?P<address>[0-9a-f./:]+)\s+(?P<comment>.*)'},
+        'ip_whitelist': {'path': 'ip_whitelist.txt',
+                         'format': '(?P<type>\w+)\s+(?P<address>[0-9a-f./:]+)\s+(?P<comment>.*)'},
+    }, 'files': []}
     config_file = os.path.expanduser('~/.logfirehtrc')
     if not os.path.isfile(config_file):
         # fallback using global configuration file
@@ -666,7 +693,16 @@ def main():
         file_names[fid] = name
         used_file_names.add(name)
         parser = AccessLogParser()
-        readers.append(LogReader(fid, fpath, parser, aggregator, tail=options.tail, tail_size=options.tail_size/len(file_names), follow=options.follow, filterdef=filterdef))
+        readers.append(LogReader(
+            fid,
+            fpath,
+            parser,
+            aggregator,
+            tail=options.tail,
+            tail_size=options.tail_size / len(file_names),
+            follow=options.follow,
+            filterdef=filterdef,
+        ))
         fid += 1
     for reader in readers:
         reader.start()
@@ -675,11 +711,11 @@ def main():
         conf = os.path.dirname(os.path.abspath(__file__)) + '/site.conf'
         cherrypy.config.update(conf)
 
-        app = cherrypy.tree.mount(Root(options, aggregator), '', conf)
+        cherrypy.tree.mount(Root(options, aggregator), '', conf)
         cherrypy.engine.start()
         cherrypy.engine.block()
-
     else:
+
         out = OutputThread(aggregator)
         out.start()
 
